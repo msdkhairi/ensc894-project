@@ -128,6 +128,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="ensc-488.h" />
+    <ClInclude Include="helper.h" />
     <ClInclude Include="stateid.h" />
     <ClInclude Include="StdAfx.h" />
   </ItemGroup>
@@ -135,6 +136,8 @@
     <Library Include="PowerCubeSim.lib" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="archive.cpp" />
+    <ClCompile Include="helper.cpp" />
     <ClCompile Include="ProgrammingDemo.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -7,12 +7,14 @@
 #include "ensc-488.h"
 #include <iostream>
 #include <string>
+#include "helper.h"
 using namespace std;
 
 int main(int argc, char* argv[])
 {
 	JOINT q1 = {0, 0, -100, 0};
 	JOINT q2 = {90, 90, -200, 45};
+	JOINT q3 = { 0, 0, -200, 0 };
 	printf("Keep this window in focus, and...\n");
 
 	
@@ -37,7 +39,8 @@ int main(int argc, char* argv[])
 
 			if (ch == '1')
 			{
-				MoveToConfiguration(q1);
+				T_01 = Transformation('r', 'z', q1[0]);
+				//MoveToConfiguration(q1);
 				//DisplayConfiguration(q1);
 			}
 			else if (ch == '2')
