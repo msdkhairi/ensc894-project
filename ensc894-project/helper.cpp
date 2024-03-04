@@ -261,7 +261,7 @@ public:
     }
 
 private:
-    Matrix<RoboticsDouble> matrix_; // Use your existing Matrix class for storage
+    Matrix<RoboticsDouble> matrix_; 
     RoboticsDouble theta_;     // Rotation angle (used for constructor with axis)  
 };
 
