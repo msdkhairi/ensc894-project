@@ -403,7 +403,7 @@ private:
 class DHParameter {
 public:
     DHParameter() : alpha(0), a(0), d(0), theta(0) {}
-	DHParameter(RoboticsDouble alpha, RoboticsDouble a, RoboticsDouble d, RoboticsDouble theta) : alpha(alpha), a(a), d(d), theta(theta) {}
+    DHParameter(RoboticsDouble alpha, RoboticsDouble a, RoboticsDouble d, RoboticsDouble theta) : alpha(alpha), a(a), d(d), theta(theta) {}
     DHParameter(const DHParameter& dh) : alpha(dh.alpha), a(dh.a), d(dh.d), theta(dh.theta) {}
     DHParameter(std::vector<RoboticsDouble> dh) : alpha(dh[0]), a(dh[1]), d(dh[2]), theta(dh[3]) {}
 
