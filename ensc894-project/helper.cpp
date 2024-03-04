@@ -321,15 +321,15 @@ private:
 
 class Transformation {
 public:
-    Transformation() : Rotation_(), translation_() {}
+    Transformation() : rotation_(), translation_() {}
     // Set the rotation
     void setRotation(const Rotation& Rotation) {
-        Rotation_ = Rotation;
+        rotation_ = Rotation;
     }
 
     // Get the rotation matrix
     Rotation getRotation() const {
-		return Rotation_;
+		return rotation_;
 	}
 
     // Set the translation
@@ -347,10 +347,10 @@ public:
         Matrix<RoboticsDouble> matrix(4, 4);
         matrix.setToIdentity();
 
-        // Copy rotation from Rotation_
+        // Copy rotation from rotation_
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
-                matrix(i, j) = Rotation_(i, j);
+                matrix(i, j) = rotation_(i, j);
             }
         }
 
@@ -395,7 +395,7 @@ public:
 	}
 
 private:
-    Rotation Rotation_;
+    Rotation rotation_;
     Translation translation_;
     Matrix<RoboticsDouble> matrix_;
 };
