@@ -1,244 +1,244 @@
 // transformation matrix for homogeneous coordinates for rotation about the x, y, or z axis by an angle theta in a class
 // with a method to rotate a point about the x, y, or z axis by an angle theta
 
-class Matrix4x4 {
-    //private:
-
-public:
-    double matrix[4][4];
-    // Constructor
-    Matrix4x4() {
-        // Initialize the matrix to zeros
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                if (i == j)
-                    matrix[i][j] = 1.0;
-                else
-                    matrix[i][j] = 0.0;
-            }
-        }
-    }
-
-    // destructor
-    ~Matrix4x4() {
-    }
-
-    void setMatrix(double mat[4][4]) {
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                matrix[i][j] = mat[i][j];
-            }
-        }
-    }
-
-    void setMatrixToIdentity() {
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                if (i == j)
-                    matrix[i][j] = 1.0;
-                else
-                    matrix[i][j] = 0.0;
-            }
-        }
-    }
-
-    void setMatrixToZero() {
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                matrix[i][j] = 0.0;
-            }
-        }
-    }
-
-    // Function to set the value at a specific position
-    void set(int row, int col, double value) {
-        matrix[row][col] = value;
-    }
-
-    // Function to get the value at a specific position
-    double get(int row, int col) const {
-        return matrix[row][col];
-    }
-
-    // Function to add two matrices
-    Matrix4x4 add(const Matrix4x4& other) const {
-        Matrix4x4 result;
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                result.matrix[i][j] = matrix[i][j] + other.matrix[i][j];
-            }
-        }
-        return result;
-    }
-
-    // Function to multiply two matrices
-    Matrix4x4 multiply(const Matrix4x4& other) const {
-        Matrix4x4 result;
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                double sum = 0.0;
-                for (int k = 0; k < 4; ++k) {
-                    sum += matrix[i][k] * other.matrix[k][j];
-                }
-                result.matrix[i][j] = sum;
-            }
-        }
-        return result;
-    }
-
-    // Function to calculate the inverse of the matrix
-    Matrix4x4 inverse() const {
-        Matrix4x4 result;
-
-        // Calculate the determinant of the matrix
-        double det = determinant();
-
-        // Check if the determinant is non-zero
-        if (std::abs(det) < 1e-10) {
-            std::cerr << "Matrix is singular, cannot find inverse." << std::endl;
-            return result; // Return a zero matrix
-        }
-
-        // Calculate the inverse using the adjugate matrix
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                result.matrix[i][j] = cofactor(j, i) / det; // Transpose of cofactor matrix
-            }
-        }
-
-        return result;
-    }
-
-    // Function to calculate the determinant of the matrix
-    double determinant() const {
-        double det = 0.0;
-        // Use cofactor expansion along the first row
-        for (int i = 0; i < 4; ++i) {
-            det += matrix[0][i] * cofactor(0, i);
-        }
-        return det;
-    }
-
-    // Function to calculate the cofactor of a specific element
-    double cofactor(int row, int col) const {
-        // Create a 3x3 submatrix excluding the given row and column
-        double submatrix[3][3];
-        int sub_i = 0, sub_j = 0;
-        for (int i = 0; i < 4; ++i) {
-            if (i == row) continue;
-            for (int j = 0; j < 4; ++j) {
-                if (j == col) continue;
-                submatrix[sub_i][sub_j++] = matrix[i][j];
-            }
-            sub_i++;
-            sub_j = 0;
-        }
-
-        // Calculate the determinant of the submatrix
-        double det = submatrix[0][0] * (submatrix[1][1] * submatrix[2][2] - submatrix[1][2] * submatrix[2][1]) -
-            submatrix[0][1] * (submatrix[1][0] * submatrix[2][2] - submatrix[1][2] * submatrix[2][0]) +
-            submatrix[0][2] * (submatrix[1][0] * submatrix[2][1] - submatrix[1][1] * submatrix[2][0]);
-
-        // Return the cofactor
-        return (row + col) % 2 == 0 ? det : -det;
-    }
-
-    // Function to display the matrix
-    void display() const {
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                std::cout << matrix[i][j] << " ";
-            }
-            std::cout << std::endl;
-        }
-    }
-};
-
-
-class RotationMatrix : public Matrix4x4 {
-public:
-    char axis;
-    double angle;
-
-    // Constructor
-    RotationMatrix(char axis, double angle) : axis(axis), angle(angle) {
-        setMatrixToIdentity();
-        calculateRotationMatrix();
-    }
-
-private:
-    // Function to calculate the rotation matrix based on axis and angle
-    void calculateRotationMatrix() {
-        double radians = DEG2RAD(angle); // Convert angle to radians
-
-        switch (axis) {
-        case 'x':
-        case 'X':
-            matrix[1][1] = cos(radians);
-            matrix[1][2] = -sin(radians);
-            matrix[2][1] = sin(radians);
-            matrix[2][2] = cos(radians);
-            break;
-        case 'y':
-        case 'Y':
-            matrix[0][0] = cos(radians);
-            matrix[0][2] = sin(radians);
-            matrix[2][0] = -sin(radians);
-            matrix[2][2] = cos(radians);
-            break;
-        case 'z':
-        case 'Z':
-            matrix[0][0] = cos(radians);
-            matrix[0][1] = -sin(radians);
-            matrix[1][0] = sin(radians);
-            matrix[1][1] = cos(radians);
-            break;
-        default:
-            std::cerr << "Invalid axis specified!" << std::endl;
-        }
-    }
-};
+//class Matrix4x4 {
+//    //private:
+//
+//public:
+//    double matrix[4][4];
+//    // Constructor
+//    Matrix4x4() {
+//        // Initialize the matrix to zeros
+//        for (int i = 0; i < 4; ++i) {
+//            for (int j = 0; j < 4; ++j) {
+//                if (i == j)
+//                    matrix[i][j] = 1.0;
+//                else
+//                    matrix[i][j] = 0.0;
+//            }
+//        }
+//    }
+//
+//    // destructor
+//    ~Matrix4x4() {
+//    }
+//
+//    void setMatrix(double mat[4][4]) {
+//        for (int i = 0; i < 4; ++i) {
+//            for (int j = 0; j < 4; ++j) {
+//                matrix[i][j] = mat[i][j];
+//            }
+//        }
+//    }
+//
+//    void setMatrixToIdentity() {
+//        for (int i = 0; i < 4; ++i) {
+//            for (int j = 0; j < 4; ++j) {
+//                if (i == j)
+//                    matrix[i][j] = 1.0;
+//                else
+//                    matrix[i][j] = 0.0;
+//            }
+//        }
+//    }
+//
+//    void setMatrixToZero() {
+//        for (int i = 0; i < 4; ++i) {
+//            for (int j = 0; j < 4; ++j) {
+//                matrix[i][j] = 0.0;
+//            }
+//        }
+//    }
+//
+//    // Function to set the value at a specific position
+//    void set(int row, int col, double value) {
+//        matrix[row][col] = value;
+//    }
+//
+//    // Function to get the value at a specific position
+//    double get(int row, int col) const {
+//        return matrix[row][col];
+//    }
+//
+//    // Function to add two matrices
+//    Matrix4x4 add(const Matrix4x4& other) const {
+//        Matrix4x4 result;
+//        for (int i = 0; i < 4; ++i) {
+//            for (int j = 0; j < 4; ++j) {
+//                result.matrix[i][j] = matrix[i][j] + other.matrix[i][j];
+//            }
+//        }
+//        return result;
+//    }
+//
+//    // Function to multiply two matrices
+//    Matrix4x4 multiply(const Matrix4x4& other) const {
+//        Matrix4x4 result;
+//        for (int i = 0; i < 4; ++i) {
+//            for (int j = 0; j < 4; ++j) {
+//                double sum = 0.0;
+//                for (int k = 0; k < 4; ++k) {
+//                    sum += matrix[i][k] * other.matrix[k][j];
+//                }
+//                result.matrix[i][j] = sum;
+//            }
+//        }
+//        return result;
+//    }
+//
+//    // Function to calculate the inverse of the matrix
+//    Matrix4x4 inverse() const {
+//        Matrix4x4 result;
+//
+//        // Calculate the determinant of the matrix
+//        double det = determinant();
+//
+//        // Check if the determinant is non-zero
+//        if (std::abs(det) < 1e-10) {
+//            std::cerr << "Matrix is singular, cannot find inverse." << std::endl;
+//            return result; // Return a zero matrix
+//        }
+//
+//        // Calculate the inverse using the adjugate matrix
+//        for (int i = 0; i < 4; ++i) {
+//            for (int j = 0; j < 4; ++j) {
+//                result.matrix[i][j] = cofactor(j, i) / det; // Transpose of cofactor matrix
+//            }
+//        }
+//
+//        return result;
+//    }
+//
+//    // Function to calculate the determinant of the matrix
+//    double determinant() const {
+//        double det = 0.0;
+//        // Use cofactor expansion along the first row
+//        for (int i = 0; i < 4; ++i) {
+//            det += matrix[0][i] * cofactor(0, i);
+//        }
+//        return det;
+//    }
+//
+//    // Function to calculate the cofactor of a specific element
+//    double cofactor(int row, int col) const {
+//        // Create a 3x3 submatrix excluding the given row and column
+//        double submatrix[3][3];
+//        int sub_i = 0, sub_j = 0;
+//        for (int i = 0; i < 4; ++i) {
+//            if (i == row) continue;
+//            for (int j = 0; j < 4; ++j) {
+//                if (j == col) continue;
+//                submatrix[sub_i][sub_j++] = matrix[i][j];
+//            }
+//            sub_i++;
+//            sub_j = 0;
+//        }
+//
+//        // Calculate the determinant of the submatrix
+//        double det = submatrix[0][0] * (submatrix[1][1] * submatrix[2][2] - submatrix[1][2] * submatrix[2][1]) -
+//            submatrix[0][1] * (submatrix[1][0] * submatrix[2][2] - submatrix[1][2] * submatrix[2][0]) +
+//            submatrix[0][2] * (submatrix[1][0] * submatrix[2][1] - submatrix[1][1] * submatrix[2][0]);
+//
+//        // Return the cofactor
+//        return (row + col) % 2 == 0 ? det : -det;
+//    }
+//
+//    // Function to display the matrix
+//    void display() const {
+//        for (int i = 0; i < 4; ++i) {
+//            for (int j = 0; j < 4; ++j) {
+//                std::cout << matrix[i][j] << " ";
+//            }
+//            std::cout << std::endl;
+//        }
+//    }
+//};
 
 
-class TranslationMatrix : public Matrix4x4 {
-public:
-    double distanceX, distanceY, distanceZ;
-    char axis;
-
-    // Constructor taking individual distances along x, y, z axes
-    TranslationMatrix(double dx, double dy, double dz) : distanceX(dx), distanceY(dy), distanceZ(dz), axis('f') {
-        setMatrixToIdentity();
-        calculateTranslationMatrix();
-    }
-
-    // Constructor taking a single distance and axis
-    TranslationMatrix(char axis, double distance) : distanceX(0.0), distanceY(0.0), distanceZ(0.0), axis(axis) {
-        switch (axis) {
-        case 'x':
-        case 'X':
-            distanceX = distance;
-            break;
-        case 'y':
-        case 'Y':
-            distanceY = distance;
-            break;
-        case 'z':
-        case 'Z':
-            distanceZ = distance;
-            break;
-        default:
-            std::cerr << "Invalid axis specified!" << std::endl;
-        }
-        calculateTranslationMatrix();
-    }
-private:
-    // Function to calculate the translation matrix based on distances along x, y, z axes
-    void calculateTranslationMatrix() {
-        matrix[0][3] = distanceX;
-        matrix[1][3] = distanceY;
-        matrix[2][3] = distanceZ;
-    }
-};
+//class RotationMatrix : public Matrix4x4 {
+//public:
+//    char axis;
+//    double angle;
+//
+//    // Constructor
+//    RotationMatrix(char axis, double angle) : axis(axis), angle(angle) {
+//        setMatrixToIdentity();
+//        calculateRotationMatrix();
+//    }
+//
+//private:
+//    // Function to calculate the rotation matrix based on axis and angle
+//    void calculateRotationMatrix() {
+//        double radians = DEG2RAD(angle); // Convert angle to radians
+//
+//        switch (axis) {
+//        case 'x':
+//        case 'X':
+//            matrix[1][1] = cos(radians);
+//            matrix[1][2] = -sin(radians);
+//            matrix[2][1] = sin(radians);
+//            matrix[2][2] = cos(radians);
+//            break;
+//        case 'y':
+//        case 'Y':
+//            matrix[0][0] = cos(radians);
+//            matrix[0][2] = sin(radians);
+//            matrix[2][0] = -sin(radians);
+//            matrix[2][2] = cos(radians);
+//            break;
+//        case 'z':
+//        case 'Z':
+//            matrix[0][0] = cos(radians);
+//            matrix[0][1] = -sin(radians);
+//            matrix[1][0] = sin(radians);
+//            matrix[1][1] = cos(radians);
+//            break;
+//        default:
+//            std::cerr << "Invalid axis specified!" << std::endl;
+//        }
+//    }
+//};
+//
+//
+//class TranslationMatrix : public Matrix4x4 {
+//public:
+//    double distanceX, distanceY, distanceZ;
+//    char axis;
+//
+//    // Constructor taking individual distances along x, y, z axes
+//    TranslationMatrix(double dx, double dy, double dz) : distanceX(dx), distanceY(dy), distanceZ(dz), axis('f') {
+//        setMatrixToIdentity();
+//        calculateTranslationMatrix();
+//    }
+//
+//    // Constructor taking a single distance and axis
+//    TranslationMatrix(char axis, double distance) : distanceX(0.0), distanceY(0.0), distanceZ(0.0), axis(axis) {
+//        switch (axis) {
+//        case 'x':
+//        case 'X':
+//            distanceX = distance;
+//            break;
+//        case 'y':
+//        case 'Y':
+//            distanceY = distance;
+//            break;
+//        case 'z':
+//        case 'Z':
+//            distanceZ = distance;
+//            break;
+//        default:
+//            std::cerr << "Invalid axis specified!" << std::endl;
+//        }
+//        calculateTranslationMatrix();
+//    }
+//private:
+//    // Function to calculate the translation matrix based on distances along x, y, z axes
+//    void calculateTranslationMatrix() {
+//        matrix[0][3] = distanceX;
+//        matrix[1][3] = distanceY;
+//        matrix[2][3] = distanceZ;
+//    }
+//};
 
 
 
@@ -387,30 +387,92 @@ private:
 //    }
 //};
 
-Matrix4x4 getTransformationFromDH(double alpha, double a, double d, double theta) {
-    Matrix4x4 transformation, transformation2;
+//Matrix4x4 getTransformationFromDH(double alpha, double a, double d, double theta) {
+//    Matrix4x4 transformation, transformation2;
+//
+//    RotationMatrix Rx('x', alpha);
+//    RotationMatrix Rz('z', theta);
+//    TranslationMatrix Tx(a, 0.0, 0.0);
+//    TranslationMatrix Tz(0.0, 0.0, d);
+//
+//    transformation = Tz.multiply(Rz.multiply(Tx.multiply(Rx)));
+//    transformation2 = Rx.multiply(Tx.multiply(Rz.multiply(Tz)));
+//
+//    return transformation;
+//}
+//
+//
+//Transformation getTransformationFromDH(RoboticsDouble alpha, RoboticsDouble a, RoboticsDouble d, RoboticsDouble theta) {
+//    Transformation result, trans_x, rot_x, trans_z, rot_z;
+//    trans_x.setTranslation(Translation(a, 0, 0));
+//    rot_x.setRotation(Rotation('x', alpha));
+//    trans_z.setTranslation(Translation(0, 0, d));
+//    rot_z.setRotation(Rotation('z', theta));
+//
+//    // Calculate the transformation matrix using the DH parameters rot_x * trans_x * rot_z * trans_z
+//    result = rot_x * trans_x * rot_z * trans_z;
+//
+//    return result;
+//}
 
-    RotationMatrix Rx('x', alpha);
-    RotationMatrix Rz('z', theta);
-    TranslationMatrix Tx(a, 0.0, 0.0);
-    TranslationMatrix Tz(0.0, 0.0, d);
-
-    transformation = Tz.multiply(Rz.multiply(Tx.multiply(Rx)));
-    transformation2 = Rx.multiply(Tx.multiply(Rz.multiply(Tz)));
-
-    return transformation;
-}
 
 
-Transformation getTransformationFromDH(RoboticsDouble alpha, RoboticsDouble a, RoboticsDouble d, RoboticsDouble theta) {
-    Transformation result, trans_x, rot_x, trans_z, rot_z;
-    trans_x.setTranslation(Translation(a, 0, 0));
-    rot_x.setRotation(Rotation('x', alpha));
-    trans_z.setTranslation(Translation(0, 0, d));
-    rot_z.setRotation(Rotation('z', theta));
+// Calculate the determinant (only for square matrices)
+//T determinant() const {
+//    if (rows_ != cols_) {
+//        throw std::invalid_argument("Determinant calculation only valid for square matrices");
+//    }
+//    if (rows_ == 1) {
+//        return (*this)(0, 0);
+//    }
+//    else if (rows_ == 2) {
+//        return (*this)(0, 0) * (*this)(1, 1) - (*this)(0, 1) * (*this)(1, 0);
+//    }
+//    else {
+//        T det = 0;
+//        for (int i = 0; i < cols_; ++i) {
+//            // Create a submatrix excluding the first row and i-th column
+//            Matrix<T> submatrix(rows_ - 1, cols_ - 1);
+//            int sub_row = 0;
+//            for (int j = 0; j < rows_; ++j) {
+//                if (j == 0) {
+//                    continue; // Skip the first row
+//                }
+//                int sub_col = 0;
+//                for (int k = 0; k < cols_; ++k) {
+//                    if (k == i) {
+//                        continue; // Skip the i-th column
+//                    }
+//                    submatrix(sub_row, sub_col) = (*this)(j, k);
+//                    ++sub_col;
+//                }
+//                ++sub_row;
+//            }
+//            // Add cofactor * determinant of the submatrix
+//            det += pow(-1, i) * (*this)(0, i) * submatrix.determinant();
+//        }
+//        return det;
+//    }
+//}
 
-    // Calculate the transformation matrix using the DH parameters rot_x * trans_x * rot_z * trans_z
-    result = rot_x * trans_x * rot_z * trans_z;
 
-    return result;
-}
+// Create a combined 4x4 homogeneous transformation matrix
+//Matrix<RoboticsDouble> getMatrix() const {
+//
+//    Matrix<RoboticsDouble> matrix(4, 4);
+//    matrix.setToIdentity();
+//
+//    // Copy rotation from rotation_
+//    for (int i = 0; i < 3; ++i) {
+//        for (int j = 0; j < 3; ++j) {
+//            matrix(i, j) = rotation_(i, j);
+//        }
+//    }
+//
+//    // Set translation components in the 4th column
+//    matrix(0, 3) = translation_.getX();
+//    matrix(1, 3) = translation_.getY();
+//    matrix(2, 3) = translation_.getZ();
+//
+//    return matrix;
+//}
