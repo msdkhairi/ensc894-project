@@ -6,6 +6,7 @@ static const ROBSIMDouble L2 = 195;
 static const ROBSIMDouble L3 = 142;
 static const ROBSIMDouble L4 = 410 + 130;
 static const ROBSIMDouble L5 = 10;
+static const ROBSIMDouble THETA5 = 0;
 
 Rotation::Rotation() : matrix_(3, 3) {
 	theta_ = 0.0;
@@ -20,8 +21,8 @@ Rotation::Rotation(const Matrix<ROBSIMDouble>& matrix) : matrix_(matrix) {
 }
 
 Rotation::Rotation(char axis, ROBSIMDouble angle) : matrix_(3, 3), theta_(angle) {
-    if (axis != 'x' && axis != 'y' && axis != 'z') {
-		throw std::invalid_argument("Invalid axis specified. Only 'x', 'y', or 'z' allowed.");
+    if (axis != 'x' && axis != 'y' && axis != 'z' && axis != 't') {
+		throw std::invalid_argument("Invalid axis specified. Only 'x', 'y', 'z', 't' allowed.");
 	}
 
 	ROBSIMDouble theta = DEG2RAD(angle);
@@ -50,6 +51,13 @@ Rotation::Rotation(char axis, ROBSIMDouble angle) : matrix_(3, 3), theta_(angle)
 		matrix_(1, 0) = sinTheta;
 		matrix_(1, 1) = cosTheta;
 		break;
+	case 't':
+		matrix_(0, 0) = cosTheta;
+		matrix_(0, 1) = sinTheta;
+		matrix_(1, 0) = sinTheta;
+		matrix_(1, 1) = -cosTheta;
+		matrix_(2, 2) = -1;
+		break;
 	}
 }
 
@@ -74,6 +82,11 @@ Matrix<ROBSIMDouble> Rotation::getHomogenMatrix() const {
 		}
 	}
 	return homogenMatrix;
+}
+
+Rotation Rotation::operator*(const Rotation& other) const {
+	Matrix<ROBSIMDouble> resultMatrix = matrix_ * other.getMatrix();
+	return Rotation(resultMatrix);
 }
 
 void Rotation::display() const {
@@ -121,7 +134,7 @@ Matrix<ROBSIMDouble> Translation::getHomogenMatrix() const {
 // Transformation class
 
 Transformation::Transformation(const Matrix<ROBSIMDouble>& matrix) : matrix_(matrix) {
-    if (matrix.getRows() != 4 || matrix.getCols() != 4) {
+    if (matrix.getRows() != 4 || matrix.getCols() != 4) {	
 		throw std::invalid_argument("Matrix must be 4x4 for transformation matrix");
 	}
 	// Extract rotation from the top-left 3x3 submatrix
@@ -229,6 +242,9 @@ Transformation getTransformationFromDH(DHParameter dh) {
     rot_z.setRotation(Rotation('z', dh.getTheta()));
 
     // Calculate the transformation matrix using the DH parameters rot_x * trans_x * rot_z * trans_z
+	//Transformation screw_x = rot_x * trans_x;
+	//Transformation screw_z = rot_z * trans_z;
+	//result = screw_x * screw_z;
     result = rot_x * trans_x * rot_z * trans_z;
 
     return result;
@@ -296,14 +312,48 @@ ROBSIMDouble* ROBSIM::q_vec::toArray() const {
 	return v;
 }
 
+void ROBSIM::q_vec::toJOINT(JOINT& result) const {
+	result[0] = theta1;
+	result[1] = theta2;
+	result[2] = d3;
+	result[3] = theta4;
+}
+
+ROBSIMDouble ROBSIM::getDistance(ROBSIMDouble theta_g, ROBSIMDouble theta_s) {
+	ROBSIMDouble dist1 = abs(theta_g - theta_s);
+	ROBSIMDouble dist2 = -sign(theta_g - theta_s) * 360 + (theta_g - theta_s);
+	return abs(dist1) < abs(dist2) ? dist1 : dist2;
+}
+
+ROBSIMDouble ROBSIM::q_vec::getDistance(q_vec& q, bool theta1_any) {
+	ROBSIMDouble distance = 0;
+	std::vector<ROBSIMDouble> v1 = toVector();
+	std::vector<ROBSIMDouble> v2 = q.toVector();
+	for (unsigned i = 0; i < v1.size(); i++) {
+		if (i == 0 && theta1_any) continue;  // skip theta1 if any theta1 is valid
+		//if (i == 2) continue;  // skip d3
+		distance += pow(ROBSIM::getDistance(v1[i], v2[i]), 2) * q_dist_weights_[i];
+	}
+	return sqrt(distance);
+}
+
+ROBSIMDouble ROBSIM::getDistance(q_vec& q1, q_vec& q2, bool theta1_any) {
+	return q1.getDistance(q2);
+}
+
+void ROBSIM::q_vec::display() {
+	std::cout << "theta1: " << theta1 << " theta2: " << theta2 << " d3: " << d3 << " theta4: " << theta4 << std::endl;
+}
+
 
 std::vector<DHParameter> ROBSIM::getDHParamsFromQVec(q_vec& q) {
 	std::vector<DHParameter> dhParams;
+	dhParams.push_back(DHParameter(0, 0, 0, 0));
 	dhParams.push_back(DHParameter(0, 0, L0+L1, q.theta1));
 	dhParams.push_back(DHParameter(0, L2, 0, q.theta2));
 	dhParams.push_back(DHParameter(180, L3, L4+q.d3, 0));
 	dhParams.push_back(DHParameter(0, 0, 0, q.theta4));
-	dhParams.push_back(DHParameter(0, 0, L5, 0));
+	dhParams.push_back(DHParameter(0, 0, L5, THETA5));
 	return dhParams;
 }
 
@@ -315,65 +365,351 @@ std::vector<Transformation> ROBSIM::getTransformationFromDHParamsVector(std::vec
 	return result;
 }
 
+ROBSIMDouble ROBSIM::sign(ROBSIMDouble x) {
+	return (x > 0) - (x < 0);
+}
+
+bool ROBSIM::ROBOT::check_q_limits_(ROBSIMDouble param, ROBSIMDouble min, ROBSIMDouble max) {
+	return (param >= min && param <= max);
+}
+
+bool ROBSIM::ROBOT::check_q_limits_(ROBSIMDouble param, ParameterLimits paramlimits, ROBSIMDouble tolerance) {
+	return (param >= paramlimits.min - tolerance && param <= paramlimits.max + tolerance);
+	//return (param >= paramlimits.min && param <= paramlimits.max);
+}
+
+bool ROBSIM::ROBOT::check_q_limits(q_vec& q, bool verbose) {
+	ROBSIMDouble tolerance = 0.0001;
+	if (!check_q_limits_(q.theta1, q_limits_.at("theta1"), tolerance)) {
+		if (verbose) std::cerr << "theta1 out of limits: " << q.theta1 << " not in [" << q_limits_.at("theta1").min << ", " << q_limits_.at("theta1").max << "]" << std::endl;
+		return false;
+	}
+	if (!check_q_limits_(q.theta2, q_limits_.at("theta2"), tolerance)) {
+		if (verbose) std::cerr << "theta2 out of limits: " << q.theta2 << " not in [" << q_limits_.at("theta2").min << ", " << q_limits_.at("theta2").max << "]" << std::endl;
+		return false;
+	}
+	if (!check_q_limits_(q.d3, q_limits_.at("d3"), tolerance)) {
+		if (verbose) std::cerr << "d3 out of limits: " << q.d3 << " not in [" << q_limits_.at("d3").min << ", " << q_limits_.at("d3").max << "]" << std::endl;
+		return false;
+	}
+	if (!check_q_limits_(q.theta4, q_limits_.at("theta4"), tolerance)) {
+		if (verbose) std::cerr << "theta4 out of limits: " << q.theta4 << " not in [" << q_limits_.at("theta4").min << ", " << q_limits_.at("theta4").max << "]" << std::endl;
+		return false;
+	}
+	adjust_q_within_tolerance_(q, tolerance);
+	return true;
+}
+
+void ROBSIM::ROBOT::adjust_q_within_tolerance_(q_vec& q, ROBSIMDouble tolerance) {
+	ROBSIMDouble tolerance_ = 0.000001;
+	if (q.theta1 <= q_limits_.at("theta1").min && q.theta1 >= q_limits_.at("theta1").min - tolerance) {
+		q.theta1 = q_limits_.at("theta1").min + tolerance_;
+	}
+
+	if (q.theta1 >= q_limits_.at("theta1").max && q.theta1 <= q_limits_.at("theta1").max + tolerance) {
+		q.theta1 = q_limits_.at("theta1").max - tolerance_;
+	}
+	
+	if (q.theta2 <= q_limits_.at("theta2").min && q.theta2 >= q_limits_.at("theta2").min - tolerance) {
+		q.theta2 = q_limits_.at("theta2").min + tolerance_;	
+	}
+	if (q.theta2 >= q_limits_.at("theta2").max && q.theta2 <= q_limits_.at("theta2").max + tolerance) {
+		q.theta2 = q_limits_.at("theta2").max - tolerance_;
+	}
+	if (q.d3 <= q_limits_.at("d3").min && q.d3 >= q_limits_.at("d3").min - tolerance) {
+		q.d3 = q_limits_.at("d3").min + tolerance_;
+	}
+	if (q.d3 >= q_limits_.at("d3").max && q.d3 <= q_limits_.at("d3").max + tolerance) {
+		q.d3 = q_limits_.at("d3").max - tolerance_;
+	}
+	if (q.theta4 <= q_limits_.at("theta4").min && q.theta4 >= q_limits_.at("theta4").min - tolerance) {
+		q.theta4 = q_limits_.at("theta4").min + tolerance_;
+	}
+	if (q.theta4 >= q_limits_.at("theta4").max && q.theta4 <= q_limits_.at("theta4").max + tolerance) {
+		q.theta4 = q_limits_.at("theta4").max - tolerance_;
+	}
+}
+
+
+bool ROBSIM::ROBOT::setQ(q_vec& q) {
+	// check constraints
+	if (!check_q_limits(q, true)) {
+		//throw std::invalid_argument("Invalid joint q vector");
+		return false;
+	}
+	q_ = q;
+
+	// update the dh_params_ vector
+	dh_params_ = getDHParamsFromQVec(q);
+
+	// updata dh_params_dict_
+	// base = 0, wrist = 4, tool = 5
+	dh_params_dict_ = {
+		{"brels", dh_params_[0]},
+		{"1relb", dh_params_[1]},
+		{"2rel1", dh_params_[2]},
+		{"3rel2", dh_params_[3]},
+		{"4rel3", dh_params_[4]},
+		{"trelw", dh_params_[5]}
+	};
+
+	dh_params_set_= true;
+	update_transformations_();
+
+	return true;
+}
+
+ROBSIM::q_vec ROBSIM::ROBOT::current_config() {
+	JOINT current_config;
+	GetConfiguration(current_config);
+	ROBSIM::q_vec q1(current_config);
+	return q1;
+}
+
+void ROBSIM::ROBOT::update_transformations_() {
+	// update the frames
+	if (!dh_params_set_) {
+		throw std::invalid_argument("DH parameters not set");
+	}
+	
+	//transformations_ = getTransformationFromDHParamsVector(dh_params_);
+	// base = 0, wrist = 4, tool = 5
+	tr_brels_ = getTransformationFromDH(dh_params_dict_["brels"]);
+	tr_1relb_ = getTransformationFromDH(dh_params_dict_["1relb"]);
+	tr_2rel1_ = getTransformationFromDH(dh_params_dict_["2rel1"]);
+	tr_3rel2_ = getTransformationFromDH(dh_params_dict_["3rel2"]);
+	tr_4rel3_ = getTransformationFromDH(dh_params_dict_["4rel3"]);
+	tr_trelw_ = getTransformationFromDH(dh_params_dict_["trelw"]);
+
+
+	brels_.setMatrix(tr_brels_);
+	trelw_.setMatrix(tr_trelw_);
+
+	wrelb_.setMatrix(tr_1relb_ * tr_2rel1_ * tr_3rel2_ * tr_4rel3_);
+
+	//trels.setMatrix(brels.getMatrix() * wrelb.getMatrix() * trelw.getMatrix());
+	update_frames_();
+	
+}
+
+void ROBSIM::ROBOT::update_frames_() {
+	// intermediate frame trelb
+	frame trelb;
+	TMULT(wrelb_, trelw_, trelb);
+	TMULT(brels_, trelb, trels_);
+}
+
 void ROBSIM::UTOI(vec4& v, frame& f) {
-	Rotation rotation('z', v.phi);
+	Rotation rotation('t', v.phi);
+	//Rotation rot_x('x', 180);
+	
 	Translation translation(v.x, v.y, v.z);
 	Transformation transformation(rotation, translation);
-	f.matrix = transformation;
+	// TODO: check if it is needed to multiply the rotation by rot_x
+	//Transformation transformation(rotation*rot_x, translation);
+	
+	f.setMatrix(transformation);
+	printf("trels from UTOI \n");
+	f.getMatrix().display();
 }
 
 void ROBSIM::ITOU(frame& f, vec4& v) {
-	Transformation transformation = f.matrix;
+	Transformation transformation = f.getMatrix();
 	Rotation rotation = transformation.getRotation();
 	Translation translation = transformation.getTranslation();
+	//printf("rotation in ITOU \n");
+	//rotation.display();
 	v.x = translation.getX();
 	v.y = translation.getY();
 	v.z = translation.getZ();
-	v.phi = atan2(rotation(1, 0), rotation(0, 0));
+
+	// TODO: check if this is correct
+	//Rotation rot_x('x', 180);
+	//rotation = rotation * rot_x;
+
+	v.phi = RAD2DEG(atan2(rotation(1, 0), rotation(0, 0)));
 }
 
 void ROBSIM::TMULT(frame& brela, frame& crelb, frame& crela) {
-	crela.matrix = brela.matrix * crelb.matrix;
+	crela.setMatrix(brela.getMatrix() * crelb.getMatrix());
 }
 
 void ROBSIM::TINVERT(frame& brela, frame& arelb) {
-	arelb.matrix = brela.matrix.inverse();
+	arelb.setMatrix(brela.getMatrix().inverse());
+	//arelb.matrix = brela.matrix.inverse();
 }
 
-void ROBSIM::ROBOT::setQ(q_vec& q) {
-	// check constraints
-	// theta1 is in -150 to 150
-	if (q.theta1 < -150 || q.theta1 > 150) {
-		throw std::invalid_argument("theta1 must be in range -150 to 150");
+// Kinematics functions
+void ROBSIM::ROBOT::KIN(q_vec& q, frame& wrelb) {
+	// update the q
+	if (!setQ(q)) {
+		printf("Invalid joint q vector");
 	}
-	// theta2 is in -100 to 100
-	if (q.theta2 < -100 || q.theta2 > 100) {
-		throw std::invalid_argument("theta2 must be in range -100 to 100");
-	}
-	// d3 is between -200 and -100
-	if (q.d3 < -200 || q.d3 > -100) {
-		throw std::invalid_argument("d3 must be in range -200 to -100");
-	}
-	// theta4 is in -160 to 160
-	if (q.theta4 < -160 || q.theta4 > 160) {
-		throw std::invalid_argument("theta4 must be in range -160 to 160");
-	}
-	q_ = q;
+	wrelb = get_wrelb();
 }
 
+ROBSIM::vec4 ROBSIM::ROBOT::WHERE(q_vec& q, frame& trels) {
+	// update the q
+	if (!setQ(q)) {
+		printf("Invalid joint q vector");
+	}
+	trels = get_trels();
 
-void ROBSIM::KIN(q_vec& q, frame& wrelb) {
+	vec4 v;
+	ITOU(trels, v);
+	return v;
+}
+
+// Inverse Kinematics functions
+void ROBSIM::ROBOT::INVKIN(frame& wrelb, q_vec& current, q_vec& near, q_vec& far, bool& sol) {
+
+	if (!setQ(current)) {
+		printf("Invalid joint q vector");
+	}
+
+	bool check_q_limit_verbose = true;
+
+	//trelb = wrelb * trelw;
+	frame current_frame = wrelb;
+
+	// get x, y, z from current frame
+	Translation pos = current_frame.getMatrix().getTranslation();
+	ROBSIMDouble x = pos.getX();
+	ROBSIMDouble y = pos.getY();
+	ROBSIMDouble z = pos.getZ();
+
+	auto c2 = (x * x + y * y - L2 * L2 - L3 * L3) / (2 * L2 * L3);
+	// check if the position is reachable
+	if (c2 > 1 || c2 < -1) {
+		sol = false;
+		std::cerr << "No solution for inverse kinematics" << std::endl;
+		return;
+	}
+	auto s2_near = sqrt(1 - c2 * c2);
+	auto s2_far = -s2_near;
+
+	// two solutions for theta2
+	auto theta2_near = RAD2DEG(atan2(s2_near, c2));
+	auto theta2_far = RAD2DEG(atan2(s2_far, c2));
+
+	// cramers rule for theta1 using s2_near
+	auto a = L2 + L3 * c2;
+	auto b_near = L3 * s2_near;
+
+	bool theta1_any = false;
+	// check if the position is reachable
+	if (a == 0 && b_near == 0) {
+		if (x == 0 && y == 0) {
+			std::cout << "theta1 one can be any angle" << std::endl;
+			bool theta1_any = true;
+		}
+		else {
+			sol = false;
+			std::cerr << "No solution for inverse kinematics" << std::endl;
+			return;
+		}
+	}
+
+	// this deosn't seem to be possible
+	// still we include it for completeness
+	auto theta1_near = current.theta1;
+	auto theta1_far = current.theta1;
+	if (!theta1_any) {
+		auto c1_near = (x * a + y * b_near);
+		auto s1_near = (y * a - x * b_near);
+
+		theta1_near = RAD2DEG(atan2(s1_near, c1_near));
+
+		// cramers rule for theta1 using s2_far
+		auto b_far = L3 * s2_far;
+
+		auto c1_far = (x * a + y * b_far);
+		auto s1_far = (y * a - x * b_far);
+
+		theta1_far = RAD2DEG(atan2(s1_far, c1_far));
+	}
+
+	// solution for d3
+	auto d3 = L0 + L1 - L4 - z;
+
+	// solution for theta4
+	// first get phi from the rotation matrix in the current frame
+	vec4 current_vec;
+	ITOU(current_frame, current_vec);
+	auto phi = current_vec.phi;
+
+	auto theta4_near = theta1_near + theta2_near - phi;
+	auto theta4_far = theta1_far + theta2_far - phi;
+
+	near.setQ(theta1_near, theta2_near, d3, theta4_near);
+	far.setQ(theta1_far, theta2_far, d3, theta4_far);
 	
-	auto dhParams = getDHParamsFromQVec(q);
-	auto transformations = getTransformationFromDHParamsVector(dhParams);
-
-	// mulitply the transformations in vector to get the final transformation using for loop
-	Transformation result = transformations[0];
-	for (unsigned i = 1; i < transformations.size(); i++) {
-		result = result * transformations[i];
+	// check if both solutions are within the limits
+	if (check_q_limits(near, check_q_limit_verbose) && check_q_limits(far, check_q_limit_verbose)) {
+		if (current.getDistance(far, theta1_any) < current.getDistance(near, theta1_any)) {
+			// switch near and far
+			q_vec temp = near;
+			near = far;
+			far = temp;
+		}
+		sol = true;
+		std::cout << "Two Solution found for INVKIN" << std::endl;
+		std::cout << "Nearest solution: ";
+		near.display();
+		//std::cout << "Farthest solution: ";
+		//far.display();
+		return;
 	}
-	wrelb.matrix = result;
+	else if (check_q_limits(far, check_q_limit_verbose)){
+		sol = true;
+		near = far;
+		std::cout << "One Solution found for INVKIN" << std::endl;
+		std::cout << "Nearest solution: ";
+		near.display();
+		return;
+	}
+	else if (check_q_limits(near, check_q_limit_verbose)) {
+		sol = true;
+		std::cout << "One Solution found for INVKIN" << std::endl;
+		std::cout << "Nearest solution: ";
+		near.display();
+		return;
+	}
+	else {
+		sol = false;
+		std::cerr << "No solution for inverse kinematics" << std::endl;
+		return;
+	}
 }
+
+void ROBSIM::ROBOT::SOLVE(frame& trels, q_vec& current, q_vec& near, q_vec& far, bool& sol) {
+	frame wrelb, wrelt, srelb, wrels;
+	frame trelw = get_trelw();
+	frame brels = get_brels();
+
+	TINVERT(trelw, wrelt);
+	TINVERT(brels, srelb);
+
+	printf("trelw \n");
+	trelw.getMatrix().display();
+
+	// wrelb = srelb * trels * wrelt
+	// wrels = trels * wrelt
+	TMULT(trels, wrelt, wrels);
+	TMULT(srelb, wrels, wrelb);
+
+	INVKIN(wrelb, current, near, far, sol);
+}
+
+void ROBSIM::ROBOT::SOLVE(vec4& pose, q_vec& current, q_vec& near, q_vec& far, bool& sol) {
+	frame trels;
+	UTOI(pose, trels);
+	SOLVE(trels, current, near, far, sol);
+}
+
+
+
+
 
 
 

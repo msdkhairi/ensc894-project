@@ -476,3 +476,17 @@
 //
 //    return matrix;
 //}
+
+
+//void ROBSIM::KIN(q_vec& q, frame& wrelb) {
+//
+//	auto dhParams = getDHParamsFromQVec(q);
+//	auto transformations = getTransformationFromDHParamsVector(dhParams);
+//
+//	// mulitply the transformations in vector to get the final transformation using for loop
+//	Transformation result = transformations[0];
+//	for (unsigned i = 1; i < transformations.size(); i++) {
+//		result = result * transformations[i];
+//	}
+//	wrelb.matrix = result;
+//}
