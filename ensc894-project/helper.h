@@ -14,172 +14,37 @@ typedef double ROBSIMDouble;
 
 //ROBSIMDouble atan2_DEG(ROBSIMDouble y, ROBSIMDouble x) { return RAD2DEG(atan2(y, x));}
 
-//template <typename T>
-//class Matrix {
-//public:
-//    // Constructors
-//    Matrix();
-//    Matrix(int rows, int cols);
-//
-//    // Element access
-//    T& operator()(int row, int col);
-//    const T& operator()(int row, int col) const;
-//
-//    // Getters for dimensions
-//    int getRows() const;
-//    int getCols() const;
-//
-//    // Matrix operations
-//    Matrix<T> operator+(const Matrix<T>& other) const;
-//    Matrix<T> operator-(const Matrix<T>& other) const;
-//    Matrix<T> operator*(const Matrix<T>& other) const;
-//    Matrix<T> transpose() const;
-//
-//    // Other methods
-//    void setToIdentity();
-//    Matrix<ROBSIMDouble> getSub3x3Matrix() const;
-//    void display() const;
-//
-//private:
-//    int rows_;
-//    int cols_;
-//    std::vector<T> data_;
-//};
-
 template <typename T>
 class Matrix {
 public:
-	// Default constructor (creates a 1x1 matrix)
+    // Constructors
 	Matrix() : rows_(1), cols_(1), data_(1) {}
+    Matrix(int rows, int cols);
 
-	// Constructor with specified dimensions
-	Matrix(int rows, int cols) : rows_(rows), cols_(cols), data_(rows* cols) {}
+    // Element access
+    T& operator()(int row, int col);
+    const T& operator()(int row, int col) const;
 
-	// Access element at given indices (row, column)
-	T& operator()(int row, int col) {
-		if (row < 0 || row >= rows_ || col < 0 || col >= cols_) {
-			throw std::out_of_range("Index out of bounds");
-		}
-		return data_[row * cols_ + col];
-	}
+    // Getters for dimensions
+    int getRows() const;
+    int getCols() const;
 
-	const T& operator()(int row, int col) const {
-		if (row < 0 || row >= rows_ || col < 0 || col >= cols_) {
-			throw std::out_of_range("Index out of bounds");
-		}
-		return data_[row * cols_ + col];
-	}
+    // Matrix operations
+    Matrix<T> operator+(const Matrix<T>& other) const;
+    Matrix<T> operator-(const Matrix<T>& other) const;
+    Matrix<T> operator*(const Matrix<T>& other) const;
+    Matrix<T> transpose() const;
 
-	// Get the number of rows
-	int getRows() const { return rows_; }
-
-	// Get the number of columns
-	int getCols() const { return cols_; }
-
-	// Add two matrices (check dimensions first)
-	Matrix<T> operator+(const Matrix<T>& other) const {
-		if (rows_ != other.rows_ || cols_ != other.cols_) {
-			throw std::invalid_argument("Matrices must have the same dimensions for addition");
-		}
-		Matrix<T> result(rows_, cols_);
-		for (int i = 0; i < rows_; ++i) {
-			for (int j = 0; j < cols_; ++j) {
-				result(i, j) = (*this)(i, j) + other(i, j);
-			}
-		}
-		return result;
-	}
-
-	// Subtract two matrices (check dimensions first)
-	Matrix<T> operator-(const Matrix<T>& other) const {
-		if (rows_ != other.rows_ || cols_ != other.cols_) {
-			throw std::invalid_argument("Matrices must have the same dimensions for subtraction");
-		}
-		Matrix<T> result(rows_, cols_);
-		for (int i = 0; i < rows_; ++i) {
-			for (int j = 0; j < cols_; ++j) {
-				result(i, j) = (*this)(i, j) - other(i, j);
-			}
-		}
-		return result;
-	}
-
-	// Multiply two matrices (check compatibility of dimensions first)
-	Matrix<T> operator*(const Matrix<T>& other) const {
-		if (cols_ != other.rows_) {
-			throw std::invalid_argument("Incompatible matrix dimensions for multiplication");
-		}
-		Matrix<T> result(rows_, other.cols_);
-		for (int i = 0; i < rows_; ++i) {
-			for (int j = 0; j < other.cols_; ++j) {
-				result(i, j) = 0;
-				for (int k = 0; k < cols_; ++k) {
-					result(i, j) += (*this)(i, k) * other(k, j);
-				}
-			}
-		}
-		return result;
-	}
-
-	// Calculate the transpose (works for any matrix)
-	Matrix<T> transpose() const {
-		Matrix<T> result(cols_, rows_);
-		for (int i = 0; i < rows_; ++i) {
-			for (int j = 0; j < cols_; ++j) {
-				result(j, i) = (*this)(i, j);
-			}
-		}
-		return result;
-	}
-
-	// Set the matrix to the identity matrix
-	void setToIdentity() {
-		if (rows_ != cols_) {
-			throw std::invalid_argument("Matrix must be square to be set to identity");
-		}
-		for (int i = 0; i < rows_; ++i) {
-			for (int j = 0; j < cols_; ++j) {
-				(*this)(i, j) = (i == j) ? T(1) : T(0);
-			}
-		}
-	}
-
-	Matrix<T> getSub3x3Matrix() const {
-		if (rows_ < 3 || cols_ < 3) {
-			throw std::invalid_argument("Matrix must be at least 3x3 to get submatrix");
-		}
-		Matrix<T> submatrix(3, 3);
-		for (int i = 0; i < 3; ++i) {
-			for (int j = 0; j < 3; ++j) {
-				submatrix(i, j) = (*this)(i, j);  // Access elements using matrix_
-			}
-		}
-		return submatrix;
-	}
-
-	// Display the matrix in a formatted way
-	void display() const {
-		for (int i = 0; i < rows_; ++i) {
-			for (int j = 0; j < cols_; ++j) {
-				std::cout << std::setw(7) << std::setprecision(3) << std::fixed << (*this)(i, j);  // Use setw(5) for fixed width of 5 characters
-			}
-			std::cout << std::endl;
-		}
-	}
+    // Other methods
+    void setToIdentity();
+    Matrix<T> getSub3x3Matrix() const;
+    void display() const;
 
 private:
-	// Number of rows
-	int rows_;
-
-	// Number of columns
-	int cols_;
-
-	// Data storage (using a single vector)
-	std::vector<T> data_;
+    int rows_;
+    int cols_;
+    std::vector<T> data_;
 };
-
-//// Forward declaration for circular dependency
-//class Translation;
 
 class Rotation {
 public:
@@ -243,7 +108,6 @@ public:
 private:
 	ROBSIMDouble x_, y_, z_;
 };
-
 
 class Transformation {
 public:
@@ -313,12 +177,8 @@ private:
 	ROBSIMDouble alpha, a, d, theta;
 };
 
-
 Transformation getTransformationFromDH(DHParameter dh);
-
 Transformation getTransformationFromDHParams(ROBSIMDouble alpha, ROBSIMDouble a, ROBSIMDouble d, ROBSIMDouble theta);
-
-
 
 // ROBSIM
 
@@ -409,7 +269,7 @@ namespace ROBSIM {
 	class ROBOT {
 	public:
 		frame wrelb_, trels_;
-		ROBOT() { }
+		ROBOT() {}
 
 		bool check_q_limits(q_vec& q, bool verbose = false);
 		//std::vector<bool> check_q_limits(const q_vec& q);
@@ -420,8 +280,6 @@ namespace ROBSIM {
 
 		void setDHParams(std::vector<DHParameter> dh_params) { dh_params_ = dh_params; }
 		std::vector<DHParameter> getDHParams() { return dh_params_; }
-
-		//void init_robot_();
 
 		void update_transformations_();
 		void update_frames_();
@@ -435,6 +293,8 @@ namespace ROBSIM {
 		frame get_trelw() { return trelw_; }
 		frame get_wrelb() { return wrelb_; }
 		frame get_trels() { return trels_; }
+		
+		bool is_robot_q_valid() { return robot_q_valid_; }	
 
 		void KIN(q_vec& q, frame& wrelb);
 		vec4 WHERE(q_vec& q, frame& trels);
@@ -444,6 +304,7 @@ namespace ROBSIM {
 		void SOLVE(vec4& pose, q_vec& current, q_vec& near, q_vec& far, bool& sol);
 
 	private:
+		bool robot_q_valid_ = false;
 		q_vec q_;
 		std::vector<DHParameter> dh_params_;
 		std::unordered_map<std::string, DHParameter> dh_params_dict_;
