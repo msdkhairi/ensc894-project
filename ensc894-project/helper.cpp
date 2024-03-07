@@ -7,6 +7,136 @@ static const ROBSIMDouble L3 = 142;
 static const ROBSIMDouble L4 = 410 + 130;
 static const ROBSIMDouble L5 = 10;
 static const ROBSIMDouble THETA5 = 0;
+//static const bool TOOL_FRAME_UP = false;
+
+template<typename T>
+Matrix<T>::Matrix(int rows, int cols) : rows_(rows), cols_(cols), data_(rows* cols) {}
+
+template<typename T>
+T& Matrix<T>::operator()(int row, int col) {
+	if (row < 0 || row >= rows_ || col < 0 || col >= cols_) {
+		throw std::out_of_range("index out of bounds");
+	}
+	return data_[row * cols_ + col];
+}
+
+template<typename T>
+const T& Matrix<T>::operator()(int row, int col) const {
+	if (row < 0 || row >= rows_ || col < 0 || col >= cols_) {
+		throw std::out_of_range("Index out of bounds");
+	}
+	return data_[row * cols_ + col];
+}
+
+template<typename T>
+int Matrix<T>::getRows() const {
+	return rows_;
+}
+
+template<typename T>
+int Matrix<T>::getCols() const {
+	return cols_;
+}
+
+template<typename T>
+Matrix<T> Matrix<T>::operator+(const Matrix<T>& other) const {
+	if (rows_ != other.rows_ || cols_ != other.cols_) {
+		throw std::invalid_argument("Matrices must have the same dimensions for addition");
+	}
+	Matrix<T> result(rows_, cols_);
+	for (int i = 0; i < rows_; ++i) {
+		for (int j = 0; j < cols_; ++j) {
+			result(i, j) = (*this)(i, j) + other(i, j);
+		}
+	}
+	return result;
+}
+
+// Subtract two matrices (check dimensions first)
+template<typename T>
+Matrix<T> Matrix<T>::operator-(const Matrix<T>& other) const {
+	if (rows_ != other.rows_ || cols_ != other.cols_) {
+		throw std::invalid_argument("Matrices must have the same dimensions for subtraction");
+	}
+	Matrix<T> result(rows_, cols_);
+	for (int i = 0; i < rows_; ++i) {
+		for (int j = 0; j < cols_; ++j) {
+			result(i, j) = (*this)(i, j) - other(i, j);
+		}
+	}
+	return result;
+}
+
+// Multiply two matrices (check compatibility of dimensions first)
+template<typename T>
+Matrix<T> Matrix<T>::operator*(const Matrix<T>& other) const {
+	if (cols_ != other.rows_) {
+		throw std::invalid_argument("Incompatible matrix dimensions for multiplication");
+	}
+	Matrix<T> result(rows_, other.cols_);
+	for (int i = 0; i < rows_; ++i) {
+		for (int j = 0; j < other.cols_; ++j) {
+			result(i, j) = 0;
+			for (int k = 0; k < cols_; ++k) {
+				result(i, j) += (*this)(i, k) * other(k, j);
+			}
+		}
+	}
+	return result;
+}
+
+// Calculate the transpose (works for any matrix)
+template<typename T>
+Matrix<T> Matrix<T>::transpose() const {
+	Matrix<T> result(cols_, rows_);
+	for (int i = 0; i < rows_; ++i) {
+		for (int j = 0; j < cols_; ++j) {
+			result(j, i) = (*this)(i, j);
+		}
+	}
+	return result;
+}
+
+// Set the matrix to the identity matrix
+template<typename T>
+void Matrix<T>::setToIdentity() {
+	if (rows_ != cols_) {
+		throw std::invalid_argument("Matrix must be square to be set to identity");
+	}
+	for (int i = 0; i < rows_; ++i) {
+		for (int j = 0; j < cols_; ++j) {
+			(*this)(i, j) = (i == j) ? T(1) : T(0);
+		}
+	}
+}
+
+template<typename T>
+Matrix<T> Matrix<T>::getSub3x3Matrix() const {
+	if (rows_ < 3 || cols_ < 3) {
+		throw std::invalid_argument("Matrix must be at least 3x3 to get submatrix");
+	}
+	Matrix<T> submatrix(3, 3);
+	for (int i = 0; i < 3; ++i) {
+		for (int j = 0; j < 3; ++j) {
+			submatrix(i, j) = (*this)(i, j);  // Access elements using matrix_
+		}
+	}
+	return submatrix;
+}
+
+// Display the matrix in a formatted way
+template<typename T>
+void Matrix<T>::display() const {
+	for (int i = 0; i < rows_; ++i) {
+		for (int j = 0; j < cols_; ++j) {
+			std::cout << std::setw(9) << std::setprecision(3) << std::fixed << (*this)(i, j);
+		}
+		std::cout << std::endl;
+	}
+}
+
+
+
 
 Rotation::Rotation() : matrix_(3, 3) {
 	theta_ = 0.0;
@@ -342,7 +472,7 @@ ROBSIMDouble ROBSIM::getDistance(q_vec& q1, q_vec& q2, bool theta1_any) {
 }
 
 void ROBSIM::q_vec::display() {
-	std::cout << "theta1: " << theta1 << " theta2: " << theta2 << " d3: " << d3 << " theta4: " << theta4 << std::endl;
+	std::cout << "theta1: " << theta1 << " theta2: " << theta2 << " d3: " << d3 << " theta4: " << theta4 << std::endl << std::flush;
 }
 
 
@@ -435,6 +565,7 @@ bool ROBSIM::ROBOT::setQ(q_vec& q) {
 	// check constraints
 	if (!check_q_limits(q, true)) {
 		//throw std::invalid_argument("Invalid joint q vector");
+		robot_q_valid_ = false;
 		return false;
 	}
 	q_ = q;
@@ -455,7 +586,7 @@ bool ROBSIM::ROBOT::setQ(q_vec& q) {
 
 	dh_params_set_= true;
 	update_transformations_();
-
+	robot_q_valid_ = true;
 	return true;
 }
 
@@ -509,8 +640,6 @@ void ROBSIM::UTOI(vec4& v, frame& f) {
 	//Transformation transformation(rotation*rot_x, translation);
 	
 	f.setMatrix(transformation);
-	printf("trels from UTOI \n");
-	f.getMatrix().display();
 }
 
 void ROBSIM::ITOU(frame& f, vec4& v) {
@@ -543,19 +672,20 @@ void ROBSIM::TINVERT(frame& brela, frame& arelb) {
 void ROBSIM::ROBOT::KIN(q_vec& q, frame& wrelb) {
 	// update the q
 	if (!setQ(q)) {
-		printf("Invalid joint q vector");
+		printf("Invalid joint q vector\n");
+		return;
 	}
 	wrelb = get_wrelb();
 }
 
 ROBSIM::vec4 ROBSIM::ROBOT::WHERE(q_vec& q, frame& trels) {
 	// update the q
+	vec4 v;
 	if (!setQ(q)) {
-		printf("Invalid joint q vector");
+		printf("Invalid joint q vector\n");
+		return v;
 	}
 	trels = get_trels();
-
-	vec4 v;
 	ITOU(trels, v);
 	return v;
 }
@@ -563,8 +693,12 @@ ROBSIM::vec4 ROBSIM::ROBOT::WHERE(q_vec& q, frame& trels) {
 // Inverse Kinematics functions
 void ROBSIM::ROBOT::INVKIN(frame& wrelb, q_vec& current, q_vec& near, q_vec& far, bool& sol) {
 
+	double tolerance = 0.00001;
+
 	if (!setQ(current)) {
-		printf("Invalid joint q vector");
+		printf("Invalid joint q vector\n");
+		sol = false;
+		return;
 	}
 
 	bool check_q_limit_verbose = true;
@@ -573,73 +707,92 @@ void ROBSIM::ROBOT::INVKIN(frame& wrelb, q_vec& current, q_vec& near, q_vec& far
 	frame current_frame = wrelb;
 
 	// get x, y, z from current frame
-	Translation pos = current_frame.getMatrix().getTranslation();
+	/*Translation pos = current_frame.getMatrix().getTranslation();
 	ROBSIMDouble x = pos.getX();
 	ROBSIMDouble y = pos.getY();
-	ROBSIMDouble z = pos.getZ();
+	ROBSIMDouble z = pos.getZ();*/
 
-	auto c2 = (x * x + y * y - L2 * L2 - L3 * L3) / (2 * L2 * L3);
-	// check if the position is reachable
-	if (c2 > 1 || c2 < -1) {
+	// get x, y, z from current frame
+	vec4 current_vec;
+	ITOU(wrelb, current_vec);
+	ROBSIMDouble x = current_vec.x;
+	ROBSIMDouble y = current_vec.y;
+	ROBSIMDouble z = current_vec.z;
+	ROBSIMDouble phi = current_vec.phi;
+
+	// check if the pos z is reachable
+	if (z < L0 + L1 - L4 - tolerance || z > L0 + L1 + L4 + tolerance) {
 		sol = false;
-		std::cerr << "No solution for inverse kinematics" << std::endl;
+		std::cerr << "No solution for inverse kinematics; Unreachable z" << std::endl;
 		return;
 	}
-	auto s2_near = sqrt(1 - c2 * c2);
-	auto s2_far = -s2_near;
 
+	ROBSIMDouble c2 = (x * x + y * y - L2 * L2 - L3 * L3) / (2 * L2 * L3);
+	// check if the position is reachable
+	if (c2 > 1 + tolerance || c2 < -1 - tolerance) {
+		sol = false;
+		std::cerr << "No solution for inverse kinematics; Unreachable x or y" << std::endl;
+		return;
+	}
+	ROBSIMDouble s2_near, s2_far;
+	ROBSIMDouble under_sqrt = 1 - c2 * c2;
+	if (under_sqrt < 0 || std::abs(under_sqrt) < tolerance) {
+		s2_near = s2_far = 0;
+	}
+	else {
+		s2_near = sqrt(1 - c2 * c2);
+		s2_far = -s2_near;
+	}
+	
 	// two solutions for theta2
-	auto theta2_near = RAD2DEG(atan2(s2_near, c2));
-	auto theta2_far = RAD2DEG(atan2(s2_far, c2));
+	ROBSIMDouble theta2_near = RAD2DEG(atan2(s2_near, c2));
+	ROBSIMDouble theta2_far = RAD2DEG(atan2(s2_far, c2));
 
 	// cramers rule for theta1 using s2_near
-	auto a = L2 + L3 * c2;
-	auto b_near = L3 * s2_near;
+	ROBSIMDouble a = L2 + L3 * c2;
+	ROBSIMDouble b_near = L3 * s2_near;
 
 	bool theta1_any = false;
 	// check if the position is reachable
 	if (a == 0 && b_near == 0) {
 		if (x == 0 && y == 0) {
-			std::cout << "theta1 one can be any angle" << std::endl;
+			std::cout << "theta1 can be any angle" << std::endl;
 			bool theta1_any = true;
 		}
 		else {
 			sol = false;
-			std::cerr << "No solution for inverse kinematics" << std::endl;
+			std::cerr << "No solution for inverse kinematics x,y = 0" << std::endl;
 			return;
 		}
 	}
 
-	// this deosn't seem to be possible
+	// this theta1_any deosn't seem to be possible based on the robot geometry
 	// still we include it for completeness
-	auto theta1_near = current.theta1;
-	auto theta1_far = current.theta1;
+	ROBSIMDouble theta1_near = current.theta1;
+	ROBSIMDouble theta1_far = current.theta1;
 	if (!theta1_any) {
-		auto c1_near = (x * a + y * b_near);
-		auto s1_near = (y * a - x * b_near);
+		ROBSIMDouble c1_near = x * a + y * b_near;
+		ROBSIMDouble s1_near = y * a - x * b_near;
 
 		theta1_near = RAD2DEG(atan2(s1_near, c1_near));
 
 		// cramers rule for theta1 using s2_far
-		auto b_far = L3 * s2_far;
+		ROBSIMDouble b_far = L3 * s2_far;
 
-		auto c1_far = (x * a + y * b_far);
-		auto s1_far = (y * a - x * b_far);
+		ROBSIMDouble c1_far = (x * a + y * b_far);
+		ROBSIMDouble s1_far = (y * a - x * b_far);
 
 		theta1_far = RAD2DEG(atan2(s1_far, c1_far));
 	}
 
 	// solution for d3
-	auto d3 = L0 + L1 - L4 - z;
+	ROBSIMDouble d3 = L0 + L1 - L4 - z;
 
 	// solution for theta4
 	// first get phi from the rotation matrix in the current frame
-	vec4 current_vec;
-	ITOU(current_frame, current_vec);
-	auto phi = current_vec.phi;
 
-	auto theta4_near = theta1_near + theta2_near - phi;
-	auto theta4_far = theta1_far + theta2_far - phi;
+	ROBSIMDouble theta4_near = theta1_near + theta2_near - phi;
+	ROBSIMDouble theta4_far = theta1_far + theta2_far - phi;
 
 	near.setQ(theta1_near, theta2_near, d3, theta4_near);
 	far.setQ(theta1_far, theta2_far, d3, theta4_far);
@@ -653,25 +806,33 @@ void ROBSIM::ROBOT::INVKIN(frame& wrelb, q_vec& current, q_vec& near, q_vec& far
 			far = temp;
 		}
 		sol = true;
-		std::cout << "Two Solution found for INVKIN" << std::endl;
-		std::cout << "Nearest solution: ";
-		near.display();
-		//std::cout << "Farthest solution: ";
-		//far.display();
+		if (near.getDistance(far, theta1_any) < tolerance) {
+			std::cout << "One Solution found for INVKIN" << std::endl;
+			std::cout << "Solution: ";
+			near.display();
+			return;
+		}
+		else {
+			std::cout << "Two Solution found for INVKIN" << std::endl;
+			std::cout << "Nearest solution: ";
+			near.display();
+			//std::cout << "Farthest solution: ";
+			//far.display();
+		}
 		return;
 	}
 	else if (check_q_limits(far, check_q_limit_verbose)){
 		sol = true;
 		near = far;
 		std::cout << "One Solution found for INVKIN" << std::endl;
-		std::cout << "Nearest solution: ";
+		std::cout << "Solution: ";
 		near.display();
 		return;
 	}
 	else if (check_q_limits(near, check_q_limit_verbose)) {
 		sol = true;
 		std::cout << "One Solution found for INVKIN" << std::endl;
-		std::cout << "Nearest solution: ";
+		std::cout << "Solution: ";
 		near.display();
 		return;
 	}
@@ -690,9 +851,6 @@ void ROBSIM::ROBOT::SOLVE(frame& trels, q_vec& current, q_vec& near, q_vec& far,
 	TINVERT(trelw, wrelt);
 	TINVERT(brels, srelb);
 
-	printf("trelw \n");
-	trelw.getMatrix().display();
-
 	// wrelb = srelb * trels * wrelt
 	// wrels = trels * wrelt
 	TMULT(trels, wrelt, wrels);
@@ -706,45 +864,3 @@ void ROBSIM::ROBOT::SOLVE(vec4& pose, q_vec& current, q_vec& near, q_vec& far, b
 	UTOI(pose, trels);
 	SOLVE(trels, current, near, far, sol);
 }
-
-
-
-
-
-
-
-//int main() {
-//    // std::cout << "Hello World!\n";
-//    Rotation rot('z', 0);
-//    // rot.display();
-//
-//    // Transformation t_01 = getTransformationFromDH(60, 3, 5, 90);
-//    Transformation t_01 = getTransformationFromDH(45, 4, 7, 90);
-//    Transformation t_12 = getTransformationFromDH(-30, -8, 2, -90);
-//    Transformation t_23 = getTransformationFromDH(180.0, 12.0, -5.0, 30.0);
-//    Transformation t_34 = getTransformationFromDH(22.5, 1.0, -1.0, 45.0);
-//    Transformation t_45 = getTransformationFromDH(60.0, 3.0, 1.34, -22.5);
-//
-//    // Transformation t_04 = t_34 * t_23 * t_12 * t_01;
-//    Transformation t_04 = t_01 * t_12 * t_23 * t_34;
-//
-//    Transformation t_05 = t_01 * t_12 * t_23 * t_34 * t_45;
-//
-//    std::cout << "t_01:\n";
-//    t_01.getMatrix().display();
-//    std::cout << "t_12:\n";
-//    t_12.getMatrix().display();
-//    std::cout << "t_23:\n";
-//    t_23.getMatrix().display();
-//    std::cout << "t_34:\n";
-//    t_34.getMatrix().display();
-//    std::cout << "t_45:\n";
-//    t_45.getMatrix().display();
-//    std::cout << "t_04:\n";
-//    t_04.getMatrix().display();
-//    std::cout << "t_05:\n";
-//    t_05.getMatrix().display();
-//
-//    // std::cout << submatrix.size() << std::endl;
-//}
-//    
