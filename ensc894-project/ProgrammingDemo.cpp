@@ -30,239 +30,202 @@ int main(int argc, char* argv[])
 
 	c = _getch() ;
 
+	// initialize the robot
+	ROBSIM::ROBOT robot;
+	// set the robot q to the current configuration
+	auto current_q(robot.current_config());
+	robot.setQ(current_q);
+
+	system("cls");
+
 	while (1)
-	{
-		ROBSIM::ROBOT robot;
-		if (c != ESC)
+	{	
+		printf("=======================================================\n");
+		printf("Press 'c': clear, 'r': reset, 'g': grasp, 'u': ungrasp\n");
+		printf("Press '1' to move to a joint configuration \n");
+		printf("Press '2' to move to a pose \n");
+		printf("Press '3' to pick and place an object \n");
+		printf("Press ESC to exit \n");
+		printf("-------------------------------------------------------\n");
+		std::cout << "input: " << std::flush;
+		ch = _getch();
+		std::cout << "\n" << std::flush;
+		if (ch != ESC)
 		{
-			printf("Press '1' or '2' \n");
-			ch = _getch();
+			//printf("Press '1' or '2' \n");
+			//ch = _getch();
 
 			if (ch == '1')
 			{
-				/*T_01 = Transformation('r', 'z', q1[0]);*/
-				MoveToConfiguration(q1);
-				//DisplayConfiguration(q1);
-			}
-			if (ch == 'd')
-			{
-				/*T_01 = Transformation('r', 'z', q1[0]);*/
-				MoveToConfiguration(q1_d);
-				//DisplayConfiguration(q1_d);
-			}
-			else if (ch == 'k')
-			{
-				JOINT q1 = { 0, 0, -100, 0 };
-				JOINT q2 = { 0, 0, -200, 0 };
-				JOINT q3 = { 90, 90, -200, 45 };
-				ROBSIM::q_vec q1_vec(q1), q2_vec(q2), q3_vec(q3);
-				auto dist = q1_vec.getDistance(q3_vec);
-				std::cout << "dist: " << dist << std::endl;
-				auto dist2 = ROBSIM::getDistance(q1_vec, q3_vec);
-				std::cout << "dist2: " << dist2 << std::endl;
-
-			}
-			else if (ch == '2')
-			{
-				bool sol = false;
-
-				printf("Please enter the joint values \ntheta1 theta2 d3 theta4\n");
-				JOINT q_input{100, -100, -100, 90};
-				for (int i = 0; i < 4; ++i) {
-					std::cin >> q_input[i];
-				}
-
-
-
-				ROBSIM::q_vec q_vec(q_input);
-				ROBSIM::q_vec near, far;
-				auto current_q(robot.current_config());
-				printf("current_q: \n");
-				current_q.display();
-				printf("q: \n");
-				q_vec.display();
-				
-				ROBSIM::frame trels;
-				auto trels_vec = robot.WHERE(q_vec, trels);
-				printf("trels: \n");
-				trels.matrix.display();
-
-				printf("trels_vec: \n");
-				trels_vec.display();
-				
-				//robot.SOLVE(trels, current_q, near, far, sol);
-				//robot.SOLVE(trels_vec, current_q, near, far, sol);
-
-				//printf("near: \n");
-				//near.display();
-				//printf("far: \n");
-				//far.display();
-				if (sol) {
-					JOINT near_q;
-					near.toJOINT(near_q);
-					printf("near_q: ");
-					for (int i = 0; i < 4; ++i) {
-						std::cout << near_q[i] << " ";
-					}
-					MoveToConfiguration(near_q);
-				}
-			}
-			else if (ch == '3')
-			{
-				ROBSIM::vec4 vect1(108, 193, 75, 0);
-				ROBSIM::q_vec near, far;
-				auto current_q(robot.current_config());
-
+				current_q = robot.current_config();
 				robot.setQ(current_q);
 
 				bool sol = false;
-				robot.SOLVE(vect1, current_q, near, far, sol);
-				
-				Grasp(false); // Open gripper
-				printf("near: \n");
-				near.display();
-				if (sol) {
-					JOINT near_q, near_q_up;
-					near.toJOINT(near_q);
-
-					near_q_up[0] = near_q[0];
-					near_q_up[1] = near_q[1];
-					near_q_up[2] = -200;
-					near_q_up[3] = near_q[3];
-
-					MoveToConfiguration(near_q_up);
-					MoveToConfiguration(near_q);
-					Grasp(true); // Close gripper
-
-				}
-			}
-			else if (ch == '4')
-			{
-				vector<ROBSIMDouble> v1 = { 1, 4, -2, 0 };
-				ROBSIM::vec4 vect1(v1);
-				ROBSIM::frame brela;
-				ROBSIM::UTOI(vect1, brela);
-
-				vector<ROBSIMDouble> v2 = { -1, -4, 2, 0 };
-				ROBSIM::vec4 vect2(v2);
-				ROBSIM::frame crelb;
-				ROBSIM::UTOI(vect2, crelb);
-
-				ROBSIM::frame crela;
-				ROBSIM::TMULT(brela, crelb, crela);
-				crela.matrix.display();
-				brela.matrix.display();
-				crelb.matrix.display();
-			}
-
-			else if (ch == '5')
-			{
-				JOINT q8 = { 90, 250, -100, 0 };
-				auto robot = ROBSIM::ROBOT();
-				ROBSIM::q_vec q(q8);
-				ROBSIM::frame f;
-				//auto q_isOK = robot.check_q_limits(q);
-				//std::cout << "q_isOK: " << q_isOK << std::endl;
-				robot.setQ(q);
-				
-				//ROBSIM::KIN(q, f);
-				//f.matrix.display();
-			}
-			else if (ch == '6')
-			{
-				//JOINT q8 = { 75, 60, -150, 15 };
-				JOINT q8 = { -98, 99, -120, -150 };
-				auto robot = ROBSIM::ROBOT();
-				ROBSIM::q_vec q(q8);
-				ROBSIM::q_vec q2, q3;
-				bool sol;
-				ROBSIM::frame f;
-				//auto q_isOK = robot.check_q_limits(q);
-				//std::cout << "q_isOK: " << q_isOK << std::endl;
-				robot.setQ(q);
-
-				auto current_q = robot.getQ();
-
-				robot.KIN(q, f);
-				
-				robot.INVKIN(f, current_q, q2, q3, sol);
-				//f.matrix.display();
-			}
-			else if (ch == '7')
-			{
-				ROBSIM::ROBOT robot;
-				JOINT current_config;
-				GetConfiguration(current_config);
-				ROBSIM::q_vec q1(current_config);
-				q1.display();
-				std::cout << "robot init" << std::endl;
-				robot.current_config().display();
-
-				StopRobot();
-				ResetRobot();
-
-				std::cout << "robot reset" << std::endl;
-				robot.current_config().display();
-			}
-			else if (ch == '8')
-			{
-				bool sol = false;
-
-				printf("Please enter the joint values \ntheta1 theta2 d3 theta4\n");
-				JOINT q_input;
+				std::cout << "Please enter the joint values \ntheta1 theta2 d3 theta4\n" << std::flush;
+				JOINT q_input{ 100, 0, -100, 0 };
 				for (int i = 0; i < 4; ++i) {
 					std::cin >> q_input[i];
 				}
-
-				ROBSIM::q_vec q_vec(q_input);
-				ROBSIM::q_vec near, far;
-				auto current_q(robot.current_config());
-				printf("current_q: \n");
-				current_q.display();
-				printf("q: \n");
-				q_vec.display();
+				printf("You entered the following joint values\n");
+				ROBSIM::q_vec q_vec_input(q_input);
+				q_vec_input.display();
 
 				ROBSIM::frame trels;
-				auto trels_vec = robot.WHERE(q_vec, trels);
-				printf("trels: \n");
-				trels.matrix.display();
+				auto trels_vec = robot.WHERE(q_vec_input, trels);
 
-				printf("trels_vec: \n");
-				trels_vec.display();
+				if (robot.is_robot_q_valid()) {
+					printf("trels: \n");
+					trels.matrix.display();
 
-				//robot.SOLVE(trels, current_q, near, far, sol);
-				robot.SOLVE(trels_vec, current_q, near, far, sol);
+					printf("trels_vec (pose): ");
+					trels_vec.display();
 
-				//printf("near: \n");
-				//near.display();
-				//printf("far: \n");
-				//far.display();
-				if (sol) {
-					JOINT near_q;
-					near.toJOINT(near_q);
-					printf("near_q: ");
-					for (int i = 0; i < 4; ++i) {
-						std::cout << near_q[i] << " ";
+					/*ROBSIM::frame trels_current;
+					ROBSIM::q_vec near, far;
+					bool sol;
+					robot.SOLVE(trels_vec, current_q, near, far, sol);*/
+
+
+					printf("Would you like the robot to move to this configuration\n");
+					printf("Press 'y' for yes and 'n' for no\n");
+					ch = _getch();
+					if (ch == 'y') {
+						std::cout << "Robot Moving to the configuration ...\n";
+						MoveToConfiguration(q_input);
+						std::cout << "Robot has moved to the configuration\n";
 					}
-					MoveToConfiguration(near_q);
+					else {
+						printf("The robot will not move to the configuration\n");
+					}
 				}
+				else {
+					printf("Try again\n");
 				}
+			}
+			else if (ch == '2')
+			{
+				//MoveToConfiguration(q1);
+				//DisplayConfiguration(q1);
+				bool sol = false;
+				ROBSIM::q_vec near, far;
+
+				current_q = robot.current_config();
+				robot.setQ(current_q);
+
+				std::cout << "Please enter the pose values\nx\ty\tz\tphi\n" << std::flush;
+				JOINT pose{ 100, 0, -100, 0 };
+				for (int i = 0; i < 4; ++i) {
+					std::cin >> pose[i];
+				}
+				printf("You entered the following pose values\n");
+				ROBSIM::vec4 pose_input(pose[0], pose[1], pose[2], pose[3]);
+				pose_input.display();
+
+				robot.SOLVE(pose_input, current_q, near, far, sol);
+
+				if (sol) {
+					printf("Would you like the robot to move to this configuration\n");
+					printf("Press 'y' for yes and 'n' for no\n");
+					ch = _getch();
+					if (ch == 'y') {
+						std::cout << "Robot Moving to the configuration ...\n";
+						JOINT near_joint;
+						near.toJOINT(near_joint);
+						MoveToConfiguration(near_joint);
+						std::cout << "Robot has moved to the configuration\n";
+					}
+					else {
+						printf("The robot will not move to the configuration\n");
+					}
+				}
+				else {
+					printf("Try again\n");
+				}
+			}
+
+			else if (ch == '3')
+			{
+				//MoveToConfiguration(q1);
+				//DisplayConfiguration(q1);
+				bool sol = false;
+				ROBSIM::q_vec near, far;
+
+				current_q = robot.current_config();
+				robot.setQ(current_q);
+
+				std::cout << "Please enter the pose of the object or desired location of object\nx\ty\tz\tphi\n" << std::flush;
+				JOINT pose{ 100, 0, -100, 0 };
+				for (int i = 0; i < 4; ++i) {
+					std::cin >> pose[i];
+				}
+				printf("You entered the following pose values\n");
+				ROBSIM::vec4 pose_input(pose[0], pose[1], pose[2], pose[3]);
+				pose_input.display();
+
+				robot.SOLVE(pose_input, current_q, near, far, sol);
+
+				if (sol) {
+					printf("Would you like the robot to move to this configuration above the object\n");
+					printf("Press 'y' for yes and 'n' for no\n");
+					ch = _getch();
+					if (ch == 'y') {
+						std::cout << "Robot Moving to the configuration above the object ...\n" << std::flush;
+						
+						JOINT near_joint;
+						near.toJOINT(near_joint);
+						
+						JOINT near_joint_up = { near_joint[0], near_joint[1], -199, near_joint[3] };
+
+						MoveToConfiguration(near_joint_up);
+						
+						printf("Would you like the robot to move to the desired location of object\n");
+						std::cout << "Press 'y' for yes and 'n' for no\n" << std::flush;
+						ch = _getch();
+						if (ch == 'y') {
+							MoveToConfiguration(near_joint);
+						}
+						else {
+							printf("The robot will not move to the configuration\n");
+						}
+					}
+					else {
+						printf("The robot will not move to the configuration\n");
+					}
+				}
+				else {
+					printf("Try again\n");
+					continue;
+				}
+			}
+			else if (ch == 'c') { //clear
+				system("cls");
+			}
+			else if (ch == 'g') { //grasp
+				Grasp(true);
+			}
+			else if (ch == 'u') { //ungrasp
+				Grasp(false);
+			}
+			else if (ch == 'r') { //reset robot
+				StopRobot();
+				ResetRobot();
+				printf("Robot has been reset\n");
+			}
+			else if (ch == 'd') { //display configuration
+				std::cout << "Robot is at the following configuration\n";
+				robot.getQ().display();
+			}
 			else
 			{
-				printf("Invalid input \n");
+				system("cls");
+				printf("Invalid input; Choose from options below \n");
 			}
-				
-
-			printf("Press any key to continue \n");
-			printf("Press q to exit \n");
-			c = _getch();
+			//printf("Press any key to continue \n");
+			//printf("Press q to exit \n");
+			//c = _getch();
 		}
 		else
 			break;
-			
-		
 	}
-	
-
 	return 0;
 }
