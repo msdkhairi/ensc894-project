@@ -6,6 +6,10 @@
 #include <iomanip>
 #include <cmath>
 #include <unordered_map>
+#include <fstream>
+#include <chrono>
+#include <thread>
+#include <ctime>
 
 #include "ensc-488.h"
 
@@ -245,6 +249,10 @@ namespace ROBSIM {
 		ROBSIMDouble getDistance(q_vec& q, bool theta1_any = false);
 		std::vector<ROBSIMDouble> get_q_dist_weights() { return q_dist_weights_; }
 
+		q_vec operator*(const ROBSIMDouble& scalar) const {
+			return q_vec(theta1 * scalar, theta2 * scalar, d3 * scalar, theta4 * scalar);
+		}
+
 		void display();
 
 	private:
@@ -253,6 +261,64 @@ namespace ROBSIM {
 		} q_dist_weights;*/
 		std::vector<ROBSIMDouble> q_dist_weights_ = { 1, 1, 1, 1 };
 	};
+
+	class cubic_poly {
+		std::vector<ROBSIMDouble> coeffs;
+		public:
+			cubic_poly() : coeffs({0, 0, 0, 0}) {}
+			cubic_poly(std::vector<ROBSIMDouble> coeffs) : coeffs(coeffs) {}
+			cubic_poly(ROBSIMDouble a0, ROBSIMDouble a1, ROBSIMDouble a2, ROBSIMDouble a3) : coeffs({a0, a1, a2, a3}) {}
+			ROBSIMDouble operator()(ROBSIMDouble t) {
+				return coeffs[0] + coeffs[1] * t + coeffs[2] * t * t + coeffs[3] * t * t * t;
+			}
+			ROBSIMDouble operator[](int i) {
+				return coeffs[i];
+			}
+			ROBSIMDouble get_position(ROBSIMDouble t) {
+				return coeffs[0] + coeffs[1] * t + coeffs[2] * t * t + coeffs[3] * t * t * t;
+			}
+			ROBSIMDouble get_velocity(ROBSIMDouble t) {
+				return coeffs[1] + 2 * coeffs[2] * t + 3 * coeffs[3] * t * t;
+			}
+			ROBSIMDouble get_acceleration(ROBSIMDouble t) {
+				return 2 * coeffs[2] + 6 * coeffs[3] * t;
+			}
+			void display() {
+				std::cout << "a0: " << coeffs[0] << " a1: " << coeffs[1] << " a2: " << coeffs[2] << " a3: " << coeffs[3] << std::endl;
+			}
+	};
+
+	struct q_cubic_poly{
+		cubic_poly theta1, theta2, d3, theta4;
+		q_cubic_poly() {}
+		q_cubic_poly(cubic_poly theta1, cubic_poly theta2, cubic_poly d3, cubic_poly theta4) : theta1(theta1), theta2(theta2), d3(d3), theta4(theta4) {}
+		q_vec operator()(ROBSIMDouble t) {
+			return q_vec(theta1(t), theta2(t), d3(t), theta4(t));
+		}
+		q_vec get_position(ROBSIMDouble t) {
+			return q_vec(theta1.get_position(t), theta2.get_position(t), d3.get_position(t), theta4.get_position(t));
+		}
+		q_vec get_velocity(ROBSIMDouble t) {
+			return q_vec(theta1.get_velocity(t), theta2.get_velocity(t), d3.get_velocity(t), theta4.get_velocity(t));
+		}
+		q_vec get_acceleration(ROBSIMDouble t) {
+			return q_vec(theta1.get_acceleration(t), theta2.get_acceleration(t), d3.get_acceleration(t), theta4.get_acceleration(t));
+		}
+		void display() {
+			std::cout << "Theta1: "; theta1.display();
+			std::cout << "Theta2: "; theta2.display();
+			std::cout << "D3: "; d3.display();
+			std::cout << "Theta4: "; theta4.display();
+		}
+	};
+
+	struct pos_vel_acc {
+		q_vec pos, vel, acc;
+		ROBSIMDouble time;
+		pos_vel_acc() {}
+		pos_vel_acc(ROBSIMDouble time, q_vec pos, q_vec vel, q_vec acc) : time(time), pos(pos), vel(vel), acc(acc) {}
+	};
+	
 
 	ROBSIMDouble getDistance(q_vec& q1, q_vec& q2, bool theta1_any = false);
 	ROBSIMDouble getDistance(ROBSIMDouble theta_g, ROBSIMDouble theta_s);
@@ -265,6 +331,23 @@ namespace ROBSIM {
 
 	void TMULT(frame& brela, frame& crelb, frame& crela);
 	void TINVERT(frame& brela, frame& arelb);
+
+	cubic_poly get_cubic_poly(ROBSIMDouble y0, ROBSIMDouble yf, ROBSIMDouble v0, ROBSIMDouble vf, ROBSIMDouble t0, ROBSIMDouble tf);
+	cubic_poly get_cubic_poly(ROBSIMDouble y0, ROBSIMDouble yf, ROBSIMDouble v0, ROBSIMDouble vf, ROBSIMDouble h);
+	q_cubic_poly get_q_cubic_poly(q_vec& q0, q_vec& qf, q_vec& v0, q_vec& vf, ROBSIMDouble t0, ROBSIMDouble tf);
+	
+
+	ROBSIMDouble get_q_velocity(ROBSIMDouble q0, ROBSIMDouble q_mid, ROBSIMDouble qf, ROBSIMDouble t0, ROBSIMDouble t_mid, ROBSIMDouble tf);
+	//std::vector<ROBSIMDouble> get_q_velocities(ROBSIMDouble q0, std::vector<ROBSIMDouble> intermediate, ROBSIMDouble qf);
+	std::vector<ROBSIMDouble> get_q_velocities(ROBSIMDouble q0, ROBSIMDouble q1, ROBSIMDouble q2, ROBSIMDouble q3, ROBSIMDouble qf,
+											   ROBSIMDouble t0, ROBSIMDouble t1, ROBSIMDouble t2, ROBSIMDouble t3, ROBSIMDouble tf);
+
+	void get_q_velocities(q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf, 
+					ROBSIMDouble t0, ROBSIMDouble t1, ROBSIMDouble t2, ROBSIMDouble t3, ROBSIMDouble tf,
+					q_vec& v0, q_vec& v1, q_vec& v2, q_vec& v3, q_vec& vf);
+
+	void calculateTimeSegments(ROBSIMDouble t0, ROBSIMDouble tf, ROBSIMDouble& t1, ROBSIMDouble& t2, ROBSIMDouble& t3);
+	
 
 	class ROBOT {
 	public:
@@ -303,6 +386,36 @@ namespace ROBSIM {
 		void SOLVE(frame& trels, q_vec& current, q_vec& near, q_vec& far, bool& sol);
 		void SOLVE(vec4& pose, q_vec& current, q_vec& near, q_vec& far, bool& sol);
 
+		bool SOLVE(vec4& p0, vec4& p1, vec4& p2, vec4& p3, vec4& pf, q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf);
+
+		bool check_trajectory_q_limits(q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf, bool verbose=true);
+		std::vector<q_cubic_poly> trajectory_planner(q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf, ROBSIMDouble t0, ROBSIMDouble tf);
+
+		pos_vel_acc sample_q_cubic_poly(q_cubic_poly q_poly, ROBSIMDouble t, ROBSIMDouble t0, ROBSIMDouble tf);
+		std::vector<pos_vel_acc> create_trajectory_planner(q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf,
+			ROBSIMDouble t0, ROBSIMDouble tf, ROBSIMDouble num_samples, bool moverobot=false);
+		std::vector<pos_vel_acc> create_trajectory_planner2(q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf,
+			ROBSIMDouble t0, ROBSIMDouble tf, ROBSIMDouble num_samples, bool moverobot=false);
+		
+		void dump_to_csv(const std::vector<pos_vel_acc>& data);
+		void dump_to_csv(const ROBSIM::pos_vel_acc& data);
+		
+		void dump_to_csv(const std::vector<std::tuple<ROBSIM::vec4, ROBSIMDouble>>& data);
+		void dump_to_csv(std::tuple<ROBSIM::vec4, ROBSIMDouble>& data);
+		void dump_to_csv(ROBSIM::vec4 data, ROBSIMDouble time);
+		void dump_to_csv(const ROBSIM::q_vec& data, ROBSIMDouble time);
+		void dump_to_csv(ROBSIM::vec4 data, ROBSIMDouble time, std::string filename);
+
+		bool check_q_vel_limits(q_vec& q_vel, bool verbose = false);
+		bool check_q_acc_limits(q_vec& q_acc, bool verbose = false);
+
+		void create_trajectory_planner_logging_files();
+
+		bool move_conf_vel_acc(q_vec& conf, q_vec& vel, q_vec& acc);
+
+		void print_trajectory_debugging(ROBSIMDouble t0, ROBSIMDouble t1, ROBSIMDouble t2, ROBSIMDouble t3, ROBSIMDouble tf,
+			q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf, std::vector<q_cubic_poly>& q_polys, int verbose=0);
+
 	private:
 		bool robot_q_valid_ = false;
 		q_vec q_;
@@ -322,6 +435,18 @@ namespace ROBSIM {
 												{"theta2", {-100, 100}},
 												{"d3", {-200, -100}},
 												{"theta4", {-160, 160}}
+		};
+		std::unordered_map<std::string, ParameterLimits> q_vel_limits_ = {
+												{"theta1", {-150, 150}},
+												{"theta2", {-150, 150}},
+												{"d3", {-50, 50}},
+												{"theta4", {-150, 150}}
+		};
+		std::unordered_map<std::string, ParameterLimits> q_acc_limits_ = {
+												{"theta1", {-600, 600}},
+												{"theta2", {-600, 600}},
+												{"d3", {-200, 200}},
+												{"theta4", {-600, 600}}
 		};
 	};
 };

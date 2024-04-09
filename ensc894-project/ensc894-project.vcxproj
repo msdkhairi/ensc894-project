@@ -136,7 +136,6 @@
     <Library Include="PowerCubeSim.lib" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="archive.cpp" />
     <ClCompile Include="helper.cpp" />
     <ClCompile Include="ProgrammingDemo.cpp" />
   </ItemGroup>

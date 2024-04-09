@@ -483,7 +483,7 @@ std::vector<DHParameter> ROBSIM::getDHParamsFromQVec(q_vec& q) {
 	dhParams.push_back(DHParameter(0, L2, 0, q.theta2));
 	dhParams.push_back(DHParameter(180, L3, L4+q.d3, 0));
 	dhParams.push_back(DHParameter(0, 0, 0, q.theta4));
-	dhParams.push_back(DHParameter(0, 0, L5, THETA5));
+	dhParams.push_back(DHParameter(0, 0, L5/2, THETA5));
 	return dhParams;
 }
 
@@ -527,6 +527,50 @@ bool ROBSIM::ROBOT::check_q_limits(q_vec& q, bool verbose) {
 		return false;
 	}
 	adjust_q_within_tolerance_(q, tolerance);
+	return true;
+}
+
+bool ROBSIM::ROBOT::check_q_vel_limits(q_vec& q_vel, bool verbose) {
+	ROBSIMDouble tolerance = 0.0001;
+	if (!check_q_limits_(q_vel.theta1, q_vel_limits_.at("theta1"), tolerance)) {
+		if (verbose) std::cerr << "theta1 velocity out of limits: " << q_vel.theta1 << " not in [" << q_vel_limits_.at("theta1").min << ", " << q_vel_limits_.at("theta1").max << "]" << std::endl;
+		return false;
+	}
+	if (!check_q_limits_(q_vel.theta2, q_vel_limits_.at("theta2"), tolerance)) {
+		if (verbose) std::cerr << "theta2 velocity out of limits: " << q_vel.theta2 << " not in [" << q_vel_limits_.at("theta2").min << ", " << q_vel_limits_.at("theta2").max << "]" << std::endl;
+		return false;
+	}
+	if (!check_q_limits_(q_vel.d3, q_vel_limits_.at("d3"), tolerance)) {
+		if (verbose) std::cerr << "d3 velocity out of limits: " << q_vel.d3 << " not in [" << q_vel_limits_.at("d3").min << ", " << q_vel_limits_.at("d3").max << "]" << std::endl;
+		return false;
+	}
+	if (!check_q_limits_(q_vel.theta4, q_vel_limits_.at("theta4"), tolerance)) {
+		if (verbose) std::cerr << "theta4 velocity out of limits: " << q_vel.theta4 << " not in [" << q_vel_limits_.at("theta4").min << ", " << q_vel_limits_.at("theta4").max << "]" << std::endl;
+		return false;
+	}
+	adjust_q_within_tolerance_(q_vel, tolerance);
+	return true;
+}
+
+bool ROBSIM::ROBOT::check_q_acc_limits(q_vec& q_acc, bool verbose) {
+	ROBSIMDouble tolerance = 0.0001;
+	if (!check_q_limits_(q_acc.theta1, q_acc_limits_.at("theta1"), tolerance)) {
+		if (verbose) std::cerr << "theta1 acceleration out of limits: " << q_acc.theta1 << " not in [" << q_acc_limits_.at("theta1").min << ", " << q_acc_limits_.at("theta1").max << "]" << std::endl;
+		return false;
+	}
+	if (!check_q_limits_(q_acc.theta2, q_acc_limits_.at("theta2"), tolerance)) {
+		if (verbose) std::cerr << "theta2 acceleration out of limits: " << q_acc.theta2 << " not in [" << q_acc_limits_.at("theta2").min << ", " << q_acc_limits_.at("theta2").max << "]" << std::endl;
+		return false;
+	}
+	if (!check_q_limits_(q_acc.d3, q_acc_limits_.at("d3"), tolerance)) {
+		if (verbose) std::cerr << "d3 acceleration out of limits: " << q_acc.d3 << " not in [" << q_acc_limits_.at("d3").min << ", " << q_acc_limits_.at("d3").max << "]" << std::endl;
+		return false;
+	}
+	if (!check_q_limits_(q_acc.theta4, q_acc_limits_.at("theta4"), tolerance)) {
+		if (verbose) std::cerr << "theta4 acceleration out of limits: " << q_acc.theta4 << " not in [" << q_acc_limits_.at("theta4").min << ", " << q_acc_limits_.at("theta4").max << "]" << std::endl;
+		return false;
+	}
+	adjust_q_within_tolerance_(q_acc, tolerance);
 	return true;
 }
 
@@ -701,7 +745,7 @@ void ROBSIM::ROBOT::INVKIN(frame& wrelb, q_vec& current, q_vec& near, q_vec& far
 		return;
 	}
 
-	bool check_q_limit_verbose = true;
+	bool check_q_limit_verbose = false;
 
 	//trelb = wrelb * trelw;
 	frame current_frame = wrelb;
@@ -807,13 +851,13 @@ void ROBSIM::ROBOT::INVKIN(frame& wrelb, q_vec& current, q_vec& near, q_vec& far
 		}
 		sol = true;
 		if (near.getDistance(far, theta1_any) < tolerance) {
-			std::cout << "One Solution found for INVKIN" << std::endl;
+			std::cout << "One Solution found for INVKIN, ";// << std::endl;
 			std::cout << "Solution: ";
 			near.display();
 			return;
 		}
 		else {
-			std::cout << "Two Solution found for INVKIN" << std::endl;
+			std::cout << "Two Solutions found for INVKIN, ";// << std::endl;
 			std::cout << "Nearest solution: ";
 			near.display();
 			//std::cout << "Farthest solution: ";
@@ -824,14 +868,14 @@ void ROBSIM::ROBOT::INVKIN(frame& wrelb, q_vec& current, q_vec& near, q_vec& far
 	else if (check_q_limits(far, check_q_limit_verbose)){
 		sol = true;
 		near = far;
-		std::cout << "One Solution found for INVKIN" << std::endl;
+		std::cout << "One Solution found for INVKIN, ";// << std::endl;
 		std::cout << "Solution: ";
 		near.display();
 		return;
 	}
 	else if (check_q_limits(near, check_q_limit_verbose)) {
 		sol = true;
-		std::cout << "One Solution found for INVKIN" << std::endl;
+		std::cout << "One Solution found for INVKIN, ";// << std::endl;
 		std::cout << "Solution: ";
 		near.display();
 		return;
@@ -863,4 +907,565 @@ void ROBSIM::ROBOT::SOLVE(vec4& pose, q_vec& current, q_vec& near, q_vec& far, b
 	frame trels;
 	UTOI(pose, trels);
 	SOLVE(trels, current, near, far, sol);
+}
+
+bool ROBSIM::ROBOT::SOLVE(vec4& p0, vec4& p1, vec4& p2, vec4& p3, vec4& pf, q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf) {
+	bool sol;
+	q_vec q_far;
+	SOLVE(p1, q0, q1, q_far, sol);
+	if (!sol) {
+		std::cerr << "No solution for p1" << std::endl;
+		sol = false;
+	}
+	SOLVE(p2, q1, q2, q_far, sol);
+	if (!sol) {
+		std::cerr << "No solution for p2" << std::endl;
+		sol = false;
+	}
+	SOLVE(p3, q2, q3, q_far, sol);
+	if (!sol) {
+		std::cerr << "No solution for p3" << std::endl;
+		sol = false;
+	}
+	SOLVE(pf, q3, qf, q_far, sol);
+	if (!sol) {
+		std::cerr << "No solution for pf" << std::endl;
+		sol = false;
+	}
+	return sol;
+}
+
+ROBSIM::cubic_poly ROBSIM::get_cubic_poly(ROBSIMDouble y0, ROBSIMDouble yf, ROBSIMDouble v0, ROBSIMDouble vf, ROBSIMDouble t0, ROBSIMDouble tf) {
+	//ROBSIMDouble h = tf - t0;
+	//ROBSIMDouble a = y0;
+	//ROBSIMDouble b = v0 * h;
+	//ROBSIMDouble c = 3 * (yf - y0) - 2 * v0 * h - vf * h;
+	//ROBSIMDouble d = -2 * (yf - y0) + v0 * h + vf * h;
+	//return ROBSIM::cubic_poly(a, b, c, d);
+
+	ROBSIMDouble h = tf - t0;
+	ROBSIMDouble a = y0;
+	ROBSIMDouble b = v0;
+	ROBSIMDouble c = 3 * (yf - y0) / (h * h) - 2 * v0 / h - vf / h;
+	ROBSIMDouble d = -2 * (yf - y0) / (h * h * h) + (v0 + vf) / (h * h);
+	return ROBSIM::cubic_poly(a, b, c, d);
+}
+
+ROBSIM::cubic_poly ROBSIM::get_cubic_poly(ROBSIMDouble y0, ROBSIMDouble yf, ROBSIMDouble v0, ROBSIMDouble vf, ROBSIMDouble h) {
+	return get_cubic_poly(y0, yf, v0, vf, 0, h);
+}
+
+ROBSIM::q_cubic_poly ROBSIM::get_q_cubic_poly(q_vec& q0, q_vec& qf, q_vec& v0, q_vec& vf, ROBSIMDouble t0, ROBSIMDouble tf) {
+	
+	ROBSIM::cubic_poly q_poly_theta1 = get_cubic_poly(q0.theta1, qf.theta1, v0.theta1, vf.theta1, t0, tf);
+	ROBSIM::cubic_poly q_poly_theta2 = get_cubic_poly(q0.theta2, qf.theta2, v0.theta2, vf.theta2, t0, tf);
+	ROBSIM::cubic_poly q_poly_d3 = get_cubic_poly(q0.d3, qf.d3, v0.d3, vf.d3, t0, tf);
+	ROBSIM::cubic_poly q_poly_theta4 = get_cubic_poly(q0.theta4, qf.theta4, v0.theta4, vf.theta4, t0, tf);
+
+	q_cubic_poly result(q_poly_theta1, q_poly_theta2, q_poly_d3, q_poly_theta4);
+	return result;
+}
+
+ROBSIMDouble ROBSIM::get_q_velocity(ROBSIMDouble q0, ROBSIMDouble q_mid, ROBSIMDouble qf, ROBSIMDouble t0, ROBSIMDouble t_mid, ROBSIMDouble tf) {
+	ROBSIMDouble v0 = (q_mid - q0) / (t_mid - t0);
+	ROBSIMDouble vf = (qf - q_mid) / (tf - t_mid);
+	return (v0 + vf) / 2;
+}
+
+
+std::vector<ROBSIMDouble> ROBSIM::get_q_velocities(ROBSIMDouble q0, ROBSIMDouble q1, ROBSIMDouble q2, ROBSIMDouble q3, ROBSIMDouble qf,
+	ROBSIMDouble t0, ROBSIMDouble t1, ROBSIMDouble t2, ROBSIMDouble t3, ROBSIMDouble tf) {
+	ROBSIMDouble v0 = 0;
+	ROBSIMDouble v1 = get_q_velocity(q0, q1, q2, t0, t1, t2);
+	ROBSIMDouble v2 = get_q_velocity(q1, q2, q3, t1, t2, t3);
+	ROBSIMDouble v3 = get_q_velocity(q2, q3, qf, t2, t3, tf);
+	ROBSIMDouble vf = 0;
+	return { v0, v1, v2, v3, vf };
+}
+
+void ROBSIM::get_q_velocities(q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf,
+	ROBSIMDouble t0, ROBSIMDouble t1, ROBSIMDouble t2, ROBSIMDouble t3, ROBSIMDouble tf, 
+	q_vec& v0, q_vec& v1, q_vec& v2, q_vec& v3, q_vec& vf){
+	
+	std::vector<ROBSIMDouble> theta1_vels = get_q_velocities(q0.theta1, q1.theta1, q2.theta1, q3.theta1, qf.theta1, t0, t1, t2, t3, tf);
+	std::vector<ROBSIMDouble> theta2_vels = get_q_velocities(q0.theta2, q1.theta2, q2.theta2, q3.theta2, qf.theta2, t0, t1, t2, t3, tf);
+	std::vector<ROBSIMDouble> d3_vels = get_q_velocities(q0.d3, q1.d3, q2.d3, q3.d3, qf.d3, t0, t1, t2, t3, tf);
+	std::vector<ROBSIMDouble> theta4_vels = get_q_velocities(q0.theta4, q1.theta4, q2.theta4, q3.theta4, qf.theta4, t0, t1, t2, t3, tf);
+
+	v0.setQ(theta1_vels[0], theta2_vels[0], d3_vels[0], theta4_vels[0]);
+	v1.setQ(theta1_vels[1], theta2_vels[1], d3_vels[1], theta4_vels[1]);
+	v2.setQ(theta1_vels[2], theta2_vels[2], d3_vels[2], theta4_vels[2]);
+	v3.setQ(theta1_vels[3], theta2_vels[3], d3_vels[3], theta4_vels[3]);
+	vf.setQ(theta1_vels[4], theta2_vels[4], d3_vels[4], theta4_vels[4]);	
+}
+
+void ROBSIM::calculateTimeSegments(ROBSIMDouble t0, ROBSIMDouble tf, ROBSIMDouble& t1, ROBSIMDouble& t2, ROBSIMDouble& t3) {
+	ROBSIMDouble interval = (tf - t0) / 4.0;
+	t1 = t0 + interval;
+	t2 = t1 + interval;
+	t3 = t2 + interval;
+}
+
+bool ROBSIM::ROBOT::check_trajectory_q_limits(q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf, bool verbose) {
+	if (!check_q_limits(q0, verbose)) {
+		std::cout << "q0 is not within the limits" << std::endl;
+		return false;
+	}
+
+	if (!check_q_limits(q1, verbose)) {
+		std::cout << "q1 is not within the limits" << std::endl;
+		return false;
+	}
+
+	if (!check_q_limits(q2, verbose)) {
+		std::cout << "q2 is not within the limits" << std::endl;
+		return false;
+	}
+
+	if (!check_q_limits(q3, verbose)) {
+		std::cout << "q3 is not within the limits" << std::endl;
+		return false;
+	}
+
+	if (!check_q_limits(qf, verbose)) {
+		std::cout << "qf is not within the limits" << std::endl;
+		return false;
+	}
+	return true;
+}
+
+std::vector<ROBSIM::q_cubic_poly> ROBSIM::ROBOT::trajectory_planner(q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf, ROBSIMDouble t0, ROBSIMDouble tf) {
+
+	// check if the q vectors are valid
+	if (!check_trajectory_q_limits(q0, q1, q2, q3, qf, true)) {
+		std::cout << "Invalid joint q vectors in trajectory" << std::endl;
+	}
+
+	ROBSIMDouble t1, t2, t3;
+	calculateTimeSegments(t0, tf, t1, t2, t3);
+
+	q_vec v0, v1, v2, v3, vf;
+	get_q_velocities(q0, q1, q2, q3, qf, t0, t1, t2, t3, tf, v0, v1, v2, v3, vf);
+
+	q_cubic_poly q_poly_01 = get_q_cubic_poly(q0, q1, v0, v1, t0, t1);
+	q_cubic_poly q_poly_12 = get_q_cubic_poly(q1, q2, v1, v2, t1, t2);
+	q_cubic_poly q_poly_23 = get_q_cubic_poly(q2, q3, v2, v3, t2, t3);
+	q_cubic_poly q_poly_3f = get_q_cubic_poly(q3, qf, v3, vf, t3, tf);
+
+	return { q_poly_01, q_poly_12, q_poly_23, q_poly_3f };
+}
+
+ROBSIM::pos_vel_acc ROBSIM::ROBOT::sample_q_cubic_poly(q_cubic_poly q_poly, ROBSIMDouble t, ROBSIMDouble t0, ROBSIMDouble tf) {
+	//auto time = (t - t0) / (tf - t0);
+	auto time = (t - t0);
+	q_vec pos = q_poly.get_position(time);
+	q_vec vel = q_poly.get_velocity(time);
+	q_vec acc = q_poly.get_acceleration(time);
+	return pos_vel_acc(t, pos, vel, acc);
+}
+
+void ROBSIM::ROBOT::create_trajectory_planner_logging_files() {
+	// Filenames
+	std::string planned_positions_filename = "planned_positions.csv";
+	std::string executed_positions_filename = "executed_positions.csv";
+	std::string planned_trajectory_filename = "planned_trajectory.csv";
+	std::string executed_trajectory_filename = "executed_trajectory.csv";
+	std::string velocities_filename = "velocities.csv";
+	std::string accelerations_filename = "accelerations.csv";
+
+	// Open files for writing and clear existing content
+	std::ofstream planned_positions_file(planned_positions_filename, std::ios::out);
+	std::ofstream executed_positions_file(executed_positions_filename, std::ios::out);
+	std::ofstream planned_trajectory_file(planned_trajectory_filename, std::ios::out);
+	std::ofstream executed_trajectory_file(executed_trajectory_filename, std::ios::out);
+	std::ofstream velocities_file(velocities_filename, std::ios::out);
+	std::ofstream accelerations_file(accelerations_filename, std::ios::out);
+
+	// Write headers
+	planned_positions_file << "time,pos_x,pos_y,pos_z,pos_phi\n";
+	executed_positions_file << "time,pos_x,pos_y,pos_z,pos_phi\n";
+	planned_trajectory_file << "time,pos_theta1,pos_theta2,pos_d3,pos_theta4\n";
+	executed_trajectory_file << "time,pos_theta1,pos_theta2,pos_d3,pos_theta4\n";
+	velocities_file << "time,vel_theta1,vel_theta2,vel_d3,vel_theta4\n";
+	accelerations_file << "time,acc_theta1,acc_theta2,acc_d3,acc_theta4\n";
+
+	planned_positions_file.close();
+	executed_positions_file.close();
+	planned_trajectory_file.close();
+	executed_trajectory_file.close();
+	velocities_file.close();
+	accelerations_file.close();
+
+}
+
+
+void ROBSIM::ROBOT::dump_to_csv(const std::vector<ROBSIM::pos_vel_acc>& data) {
+	std::ofstream planned_trajectory("planned_trajectory.csv");
+	std::ofstream velocities("velocities.csv");
+	std::ofstream accelerations("accelerations.csv");
+
+	// Write headers
+	planned_trajectory << "time,pos_theta1,pos_theta2,pos_d3,pos_theta4\n";
+	velocities << "time,vel_theta1,vel_theta2,vel_d3,vel_theta4\n";
+	accelerations << "time,acc_theta1,acc_theta2,acc_d3,acc_theta4\n";
+
+	// Write data
+	for (const auto& entry : data) {
+		planned_trajectory << entry.time << ',' << entry.pos.theta1 << ',' << entry.pos.theta2 << ',' << entry.pos.d3 << ',' << entry.pos.theta4 << '\n';
+		velocities << entry.time << ',' << entry.vel.theta1 << ',' << entry.vel.theta2 << ',' << entry.vel.d3 << ',' << entry.vel.theta4 << '\n';
+		accelerations << entry.time << ',' << entry.acc.theta1 << ',' << entry.acc.theta2 << ',' << entry.acc.d3 << ',' << entry.acc.theta4 << '\n';
+	}
+
+	planned_trajectory.close();
+	velocities.close();
+	accelerations.close();
+}
+
+void ROBSIM::ROBOT::dump_to_csv(const ROBSIM::pos_vel_acc& data) {
+	// Filenames
+	std::string trajectory_filename = "planned_trajectory.csv";
+	std::string velocities_filename = "velocities.csv";
+	std::string accelerations_filename = "accelerations.csv";
+
+	
+
+	// Open files for writing
+	std::ofstream trajectory(trajectory_filename, std::ios::out | std::ios::app);
+	std::ofstream velocities(velocities_filename, std::ios::out | std::ios::app);
+	std::ofstream accelerations(accelerations_filename, std::ios::out | std::ios::app);
+
+	// Write one row of data
+	trajectory << data.time << ',' << data.pos.theta1 << ',' << data.pos.theta2 << ',' << data.pos.d3 << ',' << data.pos.theta4 << '\n';
+	velocities << data.time << ',' << data.vel.theta1 << ',' << data.vel.theta2 << ',' << data.vel.d3 << ',' << data.vel.theta4 << '\n';
+	accelerations << data.time << ',' << data.acc.theta1 << ',' << data.acc.theta2 << ',' << data.acc.d3 << ',' << data.acc.theta4 << '\n';
+
+	// Close the files
+	trajectory.close();
+	velocities.close();
+	accelerations.close();
+}
+
+void ROBSIM::ROBOT::dump_to_csv(const std::vector<std::tuple<ROBSIM::vec4, ROBSIMDouble>>& data) {
+	std::ofstream positions("positions.csv");
+
+	// Write headers
+	positions << "time,pos_x,pos_y,pos_z,pos_phi\n";
+
+	// Write data
+	for (const auto& entry : data) {
+		positions << std::get<1>(entry) << ',' << std::get<0>(entry).x << ',' << std::get<0>(entry).y << ',' << std::get<0>(entry).z << ',' << std::get<0>(entry).phi << '\n';
+	}
+
+	positions.close();
+}
+
+
+void ROBSIM::ROBOT::dump_to_csv(std::tuple<ROBSIM::vec4, ROBSIMDouble>& data) {
+	// Filenames
+	std::string positions_filename = "positions.csv";
+
+	// Open files for writing
+	std::ofstream positions(positions_filename, std::ios::out | std::ios::app);
+
+	// Write one row of data
+	positions << std::get<1>(data) << ',' << std::get<0>(data).x << ',' << std::get<0>(data).y << ',' << std::get<0>(data).z << ',' << std::get<0>(data).phi << '\n';
+
+	// Close the files
+	positions.close();
+}
+
+void ROBSIM::ROBOT::dump_to_csv(ROBSIM::vec4 data, ROBSIMDouble time) {
+	// Filenames
+	std::string positions_filename = "positions.csv";
+
+	// Open files for writing
+	std::ofstream positions(positions_filename, std::ios::out | std::ios::app);
+
+	// Write one row of data
+	positions << time << ',' << data.x << ',' << data.y << ',' << data.z << ',' << data.phi << '\n';
+
+	// Close the files
+	positions.close();
+}
+
+void ROBSIM::ROBOT::dump_to_csv(ROBSIM::vec4 data, ROBSIMDouble time, std::string filename) {
+	// Open files for writing
+	std::ofstream positions(filename, std::ios::out | std::ios::app);
+
+	// Write one row of data
+	positions << time << ',' << data.x << ',' << data.y << ',' << data.z << ',' << data.phi << '\n';
+
+	// Close the files
+	positions.close();
+}
+
+void ROBSIM::ROBOT::dump_to_csv(const ROBSIM::q_vec& data, ROBSIMDouble time) {
+	// Filenames
+	std::string planned_trajectory_filename = "executed_trajectory.csv";
+
+	// Open files for writing
+	std::ofstream planned_trajectory(planned_trajectory_filename, std::ios::out | std::ios::app);
+
+	// Write one row of data
+	planned_trajectory << time << ',' << data.theta1 << ',' << data.theta2 << ',' << data.d3 << ',' << data.theta4 << '\n';
+
+	// Close the files
+	planned_trajectory.close();
+}
+
+
+std::vector<ROBSIM::pos_vel_acc> ROBSIM::ROBOT::create_trajectory_planner2(
+	q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf, ROBSIMDouble t0, ROBSIMDouble tf, ROBSIMDouble num_samples, bool moverobot) {
+
+	create_trajectory_planner_logging_files();
+
+	ROBSIMDouble t1, t2, t3;
+	//tf = tf - t0;
+	//t0 = 0;
+	t0 = (double)clock() / CLOCKS_PER_SEC;
+	tf = t0 + tf;
+
+	calculateTimeSegments(t0, tf, t1, t2, t3);
+
+	std::vector<q_cubic_poly> q_polys = trajectory_planner(q0, q1, q2, q3, qf, t0, tf);
+	ROBSIMDouble interval = (tf - t0) / num_samples;
+
+	std::vector<pos_vel_acc> trajectory;
+	std::vector<std::tuple<vec4, ROBSIMDouble>> positions;
+
+	ROBSIMDouble time;
+	pos_vel_acc sample;
+	vec4 pos;
+	frame dummy_frame;
+	ROBOT dummy_robot;
+
+	auto next_sample_time = std::chrono::high_resolution_clock::now();
+
+	auto robot_limits_violated = false;
+
+	for (ROBSIMDouble t = t0; t <= tf; t += interval) {
+		std::this_thread::sleep_until(next_sample_time);
+		if (t <= t1) {
+			sample = sample_q_cubic_poly(q_polys[0], t, t0, t1);
+			pos = WHERE(sample.pos, dummy_frame);
+
+			dump_to_csv(sample);
+			dump_to_csv(pos, t);
+
+			//trajectory.push_back(sample);
+			//positions.push_back(std::make_tuple(pos, t));
+		}
+		else if (t <= t2) {
+			sample = sample_q_cubic_poly(q_polys[1], t, t1, t2);
+			pos = WHERE(sample.pos, dummy_frame);
+
+			dump_to_csv(sample);
+			dump_to_csv(pos, t);
+
+			//trajectory.push_back(sample);
+			//positions.push_back(std::make_tuple(pos, t));
+		}
+		else if (t <= t3) {
+			sample = sample_q_cubic_poly(q_polys[2], t, t2, t3);
+			pos = WHERE(sample.pos, dummy_frame);
+
+			dump_to_csv(sample);
+			dump_to_csv(pos, t);
+
+			//trajectory.push_back(sample);
+			//positions.push_back(std::make_tuple(pos, t));
+		}
+		else {
+			sample = sample_q_cubic_poly(q_polys[3], t, t3, tf);
+			pos = WHERE(sample.pos, dummy_frame);
+
+			dump_to_csv(sample);
+			dump_to_csv(pos, t);
+
+			//trajectory.push_back(sample);
+			//positions.push_back(std::make_tuple(pos, t));
+
+		}
+		// Move the robot
+		if (moverobot && !robot_limits_violated) {
+			if (!move_conf_vel_acc(sample.pos, sample.vel, sample.acc)) {
+				robot_limits_violated = true;
+			}
+		}
+		// Update the next sample time
+		next_sample_time += std::chrono::duration_cast<std::chrono::high_resolution_clock::duration>(
+			std::chrono::duration<ROBSIMDouble>(interval));
+	}
+	//dump_to_csv(trajectory);
+	//dump_to_csv(positions);
+	q_vec zero_vel, zero_acc;
+	zero_vel.setQ(0, 0, 0, 0);
+	zero_acc.setQ(0, 0, 0, 0);
+	move_conf_vel_acc(qf, zero_vel, zero_acc);
+	return trajectory;
+}
+
+std::vector<ROBSIM::pos_vel_acc> ROBSIM::ROBOT::create_trajectory_planner(
+	q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf, ROBSIMDouble t0, ROBSIMDouble tf, ROBSIMDouble num_samples, bool moverobot) {
+
+	create_trajectory_planner_logging_files();
+	auto robot_limits_violated = false;
+
+	ROBSIMDouble time;
+	pos_vel_acc sample;
+	vec4 pos;
+	frame dummy_frame;
+	ROBOT dummy_robot;
+
+	t0 = (double)clock() / CLOCKS_PER_SEC;
+	auto total_time = tf;
+	tf = t0 + tf;
+
+	std::vector<q_cubic_poly> q_polys = trajectory_planner(q0, q1, q2, q3, qf, t0, tf);
+
+	ROBSIMDouble t1, t2, t3;
+	calculateTimeSegments(t0, tf, t1, t2, t3);
+
+	print_trajectory_debugging(t0, t1, t2, t3, tf, q0, q1, q2, q3, qf, q_polys, 0);
+
+	ROBSIMDouble sample_t_size = (tf - t0) / num_samples;
+	ROBSIMDouble delta_t = 0.0;
+	ROBSIMDouble prev_t = t0;
+	ROBSIMDouble now_t = t0;
+
+	while (now_t <= tf) {
+		now_t = (double)clock() / CLOCKS_PER_SEC;
+		delta_t = now_t - prev_t;
+		if (delta_t >= sample_t_size) {
+			prev_t = now_t;
+			if (now_t <= t1) {
+				sample = sample_q_cubic_poly(q_polys[0], now_t, t0, t1);
+				pos = WHERE(sample.pos, dummy_frame);
+
+				dump_to_csv(sample);
+				dump_to_csv(pos, now_t, "planned_positions.csv");
+			}
+			else if (now_t <= t2) {
+				sample = sample_q_cubic_poly(q_polys[1], now_t, t1, t2);
+				pos = WHERE(sample.pos, dummy_frame);
+
+				dump_to_csv(sample);
+				dump_to_csv(pos, now_t, "planned_positions.csv");
+
+			}
+			else if (now_t <= t3) {
+				sample = sample_q_cubic_poly(q_polys[2], now_t, t2, t3);
+				pos = WHERE(sample.pos, dummy_frame);
+
+				dump_to_csv(sample);
+				dump_to_csv(pos, now_t, "planned_positions.csv");
+			}
+			else {
+				sample = sample_q_cubic_poly(q_polys[3], now_t, t3, tf);
+				pos = WHERE(sample.pos, dummy_frame);
+
+				dump_to_csv(sample);
+				dump_to_csv(pos, now_t, "planned_positions.csv");
+			}
+
+			// Move the robot
+			if (moverobot && !robot_limits_violated) {
+				if (move_conf_vel_acc(sample.pos, sample.vel, sample.acc)) {
+					auto current_robot_config = current_config();
+					dump_to_csv(current_robot_config, now_t);
+
+					auto actual_pos = dummy_robot.WHERE(current_robot_config, dummy_frame);
+					dump_to_csv(actual_pos, now_t, "executed_positions.csv");
+				}
+				else {
+					robot_limits_violated = true;
+				}
+			}
+		}
+	}
+
+	
+	std::vector<pos_vel_acc> trajectory;
+	//dump_to_csv(trajectory);
+	q_vec zero_vel, zero_acc;
+	zero_vel.setQ(0, 0, 0, 0);
+	zero_acc.setQ(0, 0, 0, 0);
+	move_conf_vel_acc(qf, zero_vel, zero_acc);
+	return trajectory;
+}
+
+bool ROBSIM::ROBOT::move_conf_vel_acc(q_vec& qconf, q_vec& qvel, q_vec& qacc) {
+	
+	bool valid = true;
+	bool success = false;
+	double interval = 1;
+	if (!check_q_limits(qconf, true)) {
+		std::cout << "Invalid joint q vector; Robot Not Moving" << std::endl;
+		valid = false;
+	}
+	if (!check_q_vel_limits(qvel, true)) {
+		std::cout << "Invalid joint q velocity vector; Robot Not Moving" << std::endl;
+		valid = false;
+	}
+	if (!check_q_acc_limits(qacc, true)) {
+		std::cout << "Invalid joint q acceleration vector; Robot Not Moving" << std::endl;
+		valid = false;
+	}
+
+	qvel = qvel * interval;
+	qacc = qacc * interval * interval;
+	
+	if (valid) {
+		JOINT conf, vel, acc;
+		qconf.toJOINT(conf);
+		qvel.toJOINT(vel);
+		qacc.toJOINT(acc);
+		//std::cout << "conf: " << conf[0] << " " << conf[1] << " " << conf[2] << " " << conf[3] << std::endl;
+		//std::cout << "vel: " << vel[0] << " " << vel[1] << " " << vel[2] << " " << vel[3] << std::endl;
+		//std::cout << "acc: " << acc[0] << " " << acc[1] << " " << acc[2] << " " << acc[3] << std::endl;
+		if (MoveWithConfVelAcc(conf, vel, acc)) {
+			success = true;
+		}
+		//MoveToConfiguration(conf);
+	}
+	return success;
+}
+
+void ROBSIM::ROBOT::print_trajectory_debugging(ROBSIMDouble t0, ROBSIMDouble t1, ROBSIMDouble t2, ROBSIMDouble t3, ROBSIMDouble tf,
+	q_vec& q0, q_vec& q1, q_vec& q2, q_vec& q3, q_vec& qf, std::vector<q_cubic_poly>& q_polys, int verbose)
+	{
+	if (verbose == 0) {
+		return;
+	}
+	
+	if (verbose >= 1) {
+		std::cout << "q0: ";
+		q0.display();
+		std::cout << "q1: ";
+		q1.display();
+		std::cout << "q2: ";
+		q2.display();
+		std::cout << "q3: ";
+		q3.display();
+		std::cout << "qf: ";
+		qf.display();
+	}
+	if (verbose >= 2) {
+		std::cout << "t0: " << t0 << std::endl;
+		std::cout << "t1: " << t1 << std::endl;
+		std::cout << "t2: " << t2 << std::endl;
+		std::cout << "t3: " << t3 << std::endl;
+		std::cout << "tf: " << tf << std::endl;
+	}
+	if (verbose >= 3) {
+		std::cout << "q_polys size: " << q_polys.size() << std::endl;
+		std::cout << "q_poly_0: " << std::endl;
+		q_polys[0].display();
+		std::cout << "q_poly_1: " << std::endl;
+		q_polys[1].display();
+		std::cout << "q_poly_2: " << std::endl;
+		q_polys[2].display();
+		std::cout << "q_poly_3: " << std::endl;
+		q_polys[3].display();
+	}
 }
