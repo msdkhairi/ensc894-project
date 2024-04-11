@@ -399,7 +399,10 @@ int main(int argc, char* argv[])
 			}
 			else if (ch == 'd') { //display configuration
 				std::cout << "Robot is at the following configuration\n";
-				robot.getQ().display();
+				frame trels;
+				auto q_cur = robot.current_config();
+				q_cur.display();
+				robot.WHERE(q_cur, trels).display();
 			}
 			else
 			{
