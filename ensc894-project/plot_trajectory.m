@@ -77,7 +77,6 @@ while true
         % Subplot for positions (now with pos_x and pos_y)
         subplot(2, 3, 1);
         plot(pos_x, pos_y, 'm'); % Plot positions in magenta
-        xlim([0 400]);
         xlabel('Position X');
         ylabel('Position Y');
         title('Planned Position Plot');
@@ -85,7 +84,6 @@ while true
         % Subplot for positions (now with pos_x and pos_y)
         subplot(2, 3, 4);
         plot(pos_x_e, pos_y_e, 'm'); % Plot positions in magenta
-        xlim([0 400]);
         xlabel('Position X');
         ylabel('Position Y');
         title('Executed Position Plot');
